@@ -93,6 +93,191 @@ def test_repo(tmp_path):
     return str(repo)
 
 
+@pytest.fixture
+def minimal_repo(tmp_path):
+    """A bare-bones repo with almost no tooling - should score low."""
+    repo = tmp_path / "minimal"
+    repo.mkdir()
+    (repo / "main.py").write_text("print('hello')\n")
+
+    env = {
+        "GIT_AUTHOR_NAME": "Dev",
+        "GIT_AUTHOR_EMAIL": "d@d.com",
+        "GIT_COMMITTER_NAME": "Dev",
+        "GIT_COMMITTER_EMAIL": "d@d.com",
+        "HOME": str(tmp_path),
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    }
+    subprocess.run(["git", "init", str(repo)], capture_output=True, check=True, env=env)
+    subprocess.run(["git", "add", "."], cwd=repo, capture_output=True, check=True, env=env)
+    subprocess.run(
+        ["git", "commit", "-m", "init"],
+        cwd=repo, capture_output=True, check=True, env=env,
+    )
+    return str(repo)
+
+
+@pytest.fixture
+def node_api_repo(tmp_path):
+    """A Node.js API project with different tooling to cover more branches."""
+    repo = tmp_path / "node-api"
+    repo.mkdir()
+
+    (repo / "README.md").write_text("# Node API\n")
+    (repo / ".gitignore").write_text("node_modules/\n.env\n*.key\n")
+
+    import json
+    pkg = {
+        "name": "node-api",
+        "private": True,
+        "scripts": {"test": "jest", "start": "node index.js"},
+        "dependencies": {"express": "^4.18.0", "winston": "^3.8.0", "dd-trace": "^4.0.0"},
+        "devDependencies": {"jest": "^29.0.0", "eslint": "^8.0.0", "cypress": "^13.0.0"},
+    }
+    (repo / "package.json").write_text(json.dumps(pkg, indent=2))
+    (repo / "package-lock.json").write_text("{}")
+    (repo / "index.js").write_text("const express = require('express');\napp.get('/health', (req, res) => res.json({ok: true}));\n")
+
+    tests_dir = repo / "__tests__"
+    tests_dir.mkdir()
+    (tests_dir / "app.test.js").write_text("test('works', () => expect(true).toBe(true));\n")
+
+    (repo / "Dockerfile").write_text("FROM node:20\nCOPY . /app\n")
+    (repo / "docker-compose.yml").write_text("services:\n  app:\n    build: .\n")
+
+    # GitLab CI
+    (repo / ".gitlab-ci.yml").write_text(
+        "stages:\n  - test\n  - deploy\ntest:\n  script:\n    - npm test\n"
+        "    - npm run lint\n  cache:\n    paths:\n      - node_modules/\n"
+        "deploy:\n  script:\n    - deploy.sh\n"
+    )
+
+    # Renovate
+    (repo / "renovate.json").write_text('{"extends": ["config:base"]}\n')
+
+    # SECURITY.md
+    (repo / "SECURITY.md").write_text("# Security Policy\nReport issues to security@example.com\n")
+
+    # Sonar
+    (repo / "sonar-project.properties").write_text("sonar.projectKey=node-api\n")
+
+    env = {
+        "GIT_AUTHOR_NAME": "Dev",
+        "GIT_AUTHOR_EMAIL": "d@d.com",
+        "GIT_COMMITTER_NAME": "Dev",
+        "GIT_COMMITTER_EMAIL": "d@d.com",
+        "HOME": str(tmp_path),
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+    }
+    subprocess.run(["git", "init", str(repo)], capture_output=True, check=True, env=env)
+    subprocess.run(["git", "add", "."], cwd=repo, capture_output=True, check=True, env=env)
+    subprocess.run(
+        ["git", "commit", "-m", "feat: initial node API setup"],
+        cwd=repo, capture_output=True, check=True, env=env,
+    )
+    # Add multiple tags for release frequency
+    subprocess.run(["git", "tag", "v1.0.0"], cwd=repo, capture_output=True, check=True, env=env)
+    (repo / "CHANGELOG.md").write_text("# v1.1.0\n")
+    subprocess.run(["git", "add", "."], cwd=repo, capture_output=True, check=True, env=env)
+    subprocess.run(
+        ["git", "commit", "-m", "fix: update changelog"],
+        cwd=repo, capture_output=True, check=True, env=env,
+    )
+    subprocess.run(["git", "tag", "v1.1.0"], cwd=repo, capture_output=True, check=True, env=env)
+    return str(repo)
+
+
+def test_minimal_repo_scores_low(minimal_repo):
+    analyzer = GitAnalyzer(minimal_repo)
+    results = analyzer.analyze()
+    dims = results["dimensions"]
+    # Most dimensions should be 1 with no tooling
+    assert dims["build_process"]["score"] == 1
+    assert dims["testing"]["score"] == 1
+    assert dims["deployment"]["score"] == 1
+    assert dims["security"]["score"] == 1
+
+
+def test_node_api_detection(node_api_repo):
+    analyzer = GitAnalyzer(node_api_repo)
+    results = analyzer.analyze()
+    dims = results["dimensions"]
+
+    # Build process: GitLab CI with caching + Dockerfile
+    assert dims["build_process"]["score"] >= 4
+
+    # Testing: jest in deps, __tests__ dir, cypress for E2E
+    assert dims["testing"]["score"] >= 2
+
+    # Deployment: Dockerfile + Docker Compose + CD in CI
+    assert dims["deployment"]["score"] >= 3
+
+    # Monitoring: winston + dd-trace (logging + tracing)
+    assert dims["monitoring"]["score"] >= 2
+
+    # Security: renovate + SECURITY.md + sonar + gitignore secrets
+    assert dims["security"]["score"] >= 3
+
+    # Config: Dockerfile + docker-compose
+    assert dims["configuration_management"]["score"] >= 3
+
+    # Feedback: multiple tags + CI pipeline
+    assert dims["feedback_loops"]["score"] >= 3
+
+    # Classification: should be API service or web app
+    c = results["classification"]
+    assert c["primary_type"] in ("web_app", "api_service")
+
+
+def test_node_api_has_dependency_pinning(node_api_repo):
+    analyzer = GitAnalyzer(node_api_repo)
+    results = analyzer.analyze()
+    bp = results["dimensions"]["build_process"]
+    checks = {e["check"]: e for e in bp["evidence"]}
+    assert checks["dependency_pinning"]["found"]
+
+
+def test_node_api_detects_renovate(node_api_repo):
+    analyzer = GitAnalyzer(node_api_repo)
+    results = analyzer.analyze()
+    sec = results["dimensions"]["security"]
+    checks = {e["check"]: e for e in sec["evidence"]}
+    assert checks["dependency_scanning"]["found"]
+    assert "Renovate" in checks["dependency_scanning"]["detail"]
+
+
+def test_node_api_detects_sast(node_api_repo):
+    analyzer = GitAnalyzer(node_api_repo)
+    results = analyzer.analyze()
+    sec = results["dimensions"]["security"]
+    checks = {e["check"]: e for e in sec["evidence"]}
+    assert checks.get("sast_config", {}).get("found")
+
+
+def test_node_api_detects_docker_compose(node_api_repo):
+    analyzer = GitAnalyzer(node_api_repo)
+    results = analyzer.analyze()
+    dep = results["dimensions"]["deployment"]
+    checks = {e["check"]: e for e in dep["evidence"]}
+    assert checks["docker_compose"]["found"]
+
+
+def test_evidence_has_paths(test_repo):
+    analyzer = GitAnalyzer(test_repo)
+    results = analyzer.analyze()
+    dims = results["dimensions"]
+    # Check specific items have paths
+    vc = {e["check"]: e for e in dims["version_control"]["evidence"]}
+    assert vc["gitignore"].get("path") == ".gitignore"
+    assert vc["readme"].get("path") == "README.md"
+
+    bp = {e["check"]: e for e in dims["build_process"]["evidence"]}
+    assert ".github/workflows/ci.yml" in bp["ci_config"].get("path", "")
+
+    ai = {e["check"]: e for e in dims["ai_readiness"]["evidence"]}
+    assert ai["claude_md"].get("path") == "CLAUDE.md"
+
+
 def test_analyzer_returns_all_dimensions(test_repo):
     analyzer = GitAnalyzer(test_repo)
     results = analyzer.analyze()
