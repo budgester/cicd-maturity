@@ -4,3 +4,5 @@ flask-migrate>=4.0
 python-dotenv>=1.0
 gunicorn>=21.2
 xhtml2pdf>=0.2.11
+structlog>=23.0
+prometheus-client>=0.20
