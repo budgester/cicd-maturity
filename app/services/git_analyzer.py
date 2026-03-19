@@ -21,6 +21,7 @@ class GitAnalyzer:
         Returns dict with:
             "dimensions": {dimension -> {score, evidence}}
             "classification": {type, confidence, signals}
+            "tech_stack": [{category, tool, purpose, path}]
         """
         with tempfile.TemporaryDirectory() as tmpdir:
             self.repo_path = Path(tmpdir) / "repo"
@@ -37,6 +38,7 @@ class GitAnalyzer:
                     "feedback_loops": self._check_feedback_loops(),
                     "ai_readiness": self._check_ai_readiness(),
                 },
+                "tech_stack": self._detect_tech_stack(),
                 "classification": self._classify_application(),
             }
 
@@ -177,6 +179,28 @@ class GitAnalyzer:
             if any(kw in lower for kw in keywords):
                 return True
         return False
+
+    def _detect_coverage_threshold(self, pyproject_content, ci_files):
+        """Extract coverage minimum threshold from config or CI."""
+        # pyproject.toml: fail_under = 80
+        match = re.search(r"fail_under\s*=\s*(\d+)", pyproject_content)
+        if match:
+            return int(match.group(1))
+
+        # CI files: --cov-fail-under=80 or --cov-fail-under 80
+        for _, content in ci_files:
+            match = re.search(r"--cov-fail-under[= ](\d+)", content)
+            if match:
+                return int(match.group(1))
+
+        # .coveragerc or setup.cfg: fail_under = 80
+        for cfg_file in [".coveragerc", "setup.cfg"]:
+            content = self._read_file(cfg_file)
+            match = re.search(r"fail_under\s*=\s*(\d+)", content)
+            if match:
+                return int(match.group(1))
+
+        return None
 
     # ── dimension checks ─────────────────────────────────────────────────
 
@@ -430,6 +454,21 @@ class GitAnalyzer:
         if self._ci_content_has(ci_files, "coverage", "codecov", "coveralls"):
             evidence.append({"check": "coverage_in_ci", "found": True, "detail": "Coverage reporting in CI"})
             score = max(score, 3)
+
+        # Coverage enforcement threshold
+        cov_threshold = self._detect_coverage_threshold(pyproject, ci_files)
+        if cov_threshold:
+            evidence.append({
+                "check": "coverage_threshold",
+                "found": True,
+                "detail": f"Coverage enforcement: minimum {cov_threshold}% required",
+            })
+            if cov_threshold >= 80:
+                score = max(score, 4)
+            else:
+                score = max(score, 3)
+        else:
+            evidence.append({"check": "coverage_threshold", "found": False, "detail": "No coverage minimum threshold enforced"})
 
         # E2E testing
         e2e_tools = {
@@ -1022,6 +1061,159 @@ class GitAnalyzer:
             evidence.append({"check": "ai_readiness", "found": False, "detail": "No AI tooling or configuration detected"})
 
         return {"score": min(score, 5), "evidence": evidence}
+
+    # ── tech stack detection ─────────────────────────────────────────────
+
+    def _detect_tech_stack(self):
+        """Detect the technology stack, tools, and their purposes."""
+        stack = []
+        deps = self._get_dependencies()
+
+        # ── Languages ────────────────────────────────────────────────────
+        lang_indicators = [
+            (r".*\.py$", "Python", self._file_exists(r"pyproject\.toml$", r"setup\.py$", r"requirements\.txt$")),
+            (r".*\.js$", "JavaScript", self._file_exists(r"package\.json$")),
+            (r".*\.ts$", "TypeScript", self._file_exists(r"tsconfig\.json$")),
+            (r".*\.go$", "Go", self._file_exists(r"go\.mod$")),
+            (r".*\.rs$", "Rust", self._file_exists(r"Cargo\.toml$")),
+            (r".*\.rb$", "Ruby", self._file_exists(r"Gemfile$")),
+            (r".*\.java$", "Java", self._file_exists(r"pom\.xml$", r"build\.gradle(\.kts)?$")),
+        ]
+        for pattern, lang, config_file in lang_indicators:
+            if self._files_matching(pattern) or config_file:
+                stack.append({"category": "Language", "tool": lang, "purpose": "Primary language", "path": config_file or ""})
+
+        # ── Frameworks ───────────────────────────────────────────────────
+        framework_map = {
+            "flask": ("Flask", "Web framework", "app/__init__.py"),
+            "django": ("Django", "Web framework", "manage.py"),
+            "fastapi": ("FastAPI", "API framework", None),
+            "express": ("Express", "Web framework", None),
+            "next": ("Next.js", "React framework", None),
+            "rails": ("Ruby on Rails", "Web framework", None),
+            "spring-boot": ("Spring Boot", "Java framework", None),
+        }
+        for dep, (name, purpose, default_path) in framework_map.items():
+            if dep in deps:
+                path = self._file_exists(re.escape(default_path) + "$") if default_path else ""
+                stack.append({"category": "Framework", "tool": name, "purpose": purpose, "path": path or ""})
+
+        # ── Database / ORM ───────────────────────────────────────────────
+        db_map = {
+            "flask-sqlalchemy": ("SQLAlchemy", "ORM"),
+            "sqlalchemy": ("SQLAlchemy", "ORM"),
+            "django": ("Django ORM", "ORM"),
+            "prisma": ("Prisma", "ORM"),
+            "sequelize": ("Sequelize", "ORM"),
+            "typeorm": ("TypeORM", "ORM"),
+            "mongoose": ("Mongoose", "MongoDB ODM"),
+            "psycopg2": ("PostgreSQL", "Database driver"),
+            "psycopg2-binary": ("PostgreSQL", "Database driver"),
+            "pymongo": ("MongoDB", "Database driver"),
+            "redis": ("Redis", "Cache / data store"),
+        }
+        for dep, (name, purpose) in db_map.items():
+            if dep in deps:
+                stack.append({"category": "Database", "tool": name, "purpose": purpose, "path": ""})
+
+        # ── CI/CD ────────────────────────────────────────────────────────
+        ci_map = {
+            r"\.github/workflows/.*\.ya?ml$": ("GitHub Actions", "CI/CD pipeline"),
+            r"Jenkinsfile$": ("Jenkins", "CI/CD pipeline"),
+            r"\.gitlab-ci\.ya?ml$": ("GitLab CI", "CI/CD pipeline"),
+            r"\.circleci/config\.ya?ml$": ("CircleCI", "CI/CD pipeline"),
+            r"\.travis\.ya?ml$": ("Travis CI", "CI/CD pipeline"),
+        }
+        for pattern, (name, purpose) in ci_map.items():
+            match = self._file_exists(pattern)
+            if match:
+                stack.append({"category": "CI/CD", "tool": name, "purpose": purpose, "path": match})
+
+        # ── Testing ──────────────────────────────────────────────────────
+        test_map = {
+            "pytest": ("pytest", "Unit / integration testing"),
+            "pytest-cov": ("pytest-cov", "Coverage reporting"),
+            "jest": ("Jest", "JavaScript testing"),
+            "mocha": ("Mocha", "JavaScript testing"),
+            "vitest": ("Vitest", "Vite testing"),
+            "cypress": ("Cypress", "E2E testing"),
+            "playwright": ("Playwright", "E2E testing"),
+            "@playwright/test": ("Playwright", "E2E testing"),
+            "rspec": ("RSpec", "Ruby testing"),
+            "k6": ("k6", "Performance testing"),
+            "locust": ("Locust", "Load testing"),
+        }
+        for dep, (name, purpose) in test_map.items():
+            if dep in deps:
+                stack.append({"category": "Testing", "tool": name, "purpose": purpose, "path": ""})
+
+        # Coverage threshold
+        pyproject = self._read_file("pyproject.toml")
+        ci_files = self._ci_file_contents()
+        threshold = self._detect_coverage_threshold(pyproject, ci_files)
+        if threshold:
+            stack.append({"category": "Testing", "tool": f"Coverage gate ({threshold}%)", "purpose": "Minimum coverage enforcement", "path": ""})
+
+        # ── Containerisation ─────────────────────────────────────────────
+        dockerfile = self._file_exists(r"Dockerfile$")
+        if dockerfile:
+            stack.append({"category": "Container", "tool": "Docker", "purpose": "Containerisation", "path": dockerfile})
+        compose = self._file_exists(r"docker-compose\.ya?ml$", r"compose\.ya?ml$")
+        if compose:
+            stack.append({"category": "Container", "tool": "Docker Compose", "purpose": "Multi-container orchestration", "path": compose})
+
+        # ── Linting / formatting ─────────────────────────────────────────
+        lint_map = {
+            "ruff": ("Ruff", "Python linter / formatter"),
+            "eslint": ("ESLint", "JavaScript linter"),
+            "prettier": ("Prettier", "Code formatter"),
+            "black": ("Black", "Python formatter"),
+            "flake8": ("Flake8", "Python linter"),
+            "pylint": ("Pylint", "Python linter"),
+            "rubocop": ("RuboCop", "Ruby linter"),
+            "golangci-lint": ("golangci-lint", "Go linter"),
+        }
+        for dep, (name, purpose) in lint_map.items():
+            if dep in deps:
+                stack.append({"category": "Quality", "tool": name, "purpose": purpose, "path": ""})
+
+        # ── Monitoring / observability ───────────────────────────────────
+        obs_map = {
+            "structlog": ("structlog", "Structured logging"),
+            "loguru": ("Loguru", "Logging"),
+            "winston": ("Winston", "Logging"),
+            "pino": ("Pino", "Structured logging"),
+            "prometheus-client": ("Prometheus", "Metrics collection"),
+            "prometheus_client": ("Prometheus", "Metrics collection"),
+            "datadog": ("Datadog", "APM / monitoring"),
+            "ddtrace": ("Datadog APM", "Distributed tracing"),
+            "opentelemetry-sdk": ("OpenTelemetry", "Observability"),
+            "newrelic": ("New Relic", "APM"),
+        }
+        for dep, (name, purpose) in obs_map.items():
+            if dep in deps:
+                stack.append({"category": "Observability", "tool": name, "purpose": purpose, "path": ""})
+
+        # ── Security ─────────────────────────────────────────────────────
+        dependabot = self._file_exists(r"\.github/dependabot\.ya?ml$")
+        if dependabot:
+            stack.append({"category": "Security", "tool": "Dependabot", "purpose": "Automated dependency updates", "path": dependabot})
+        renovate = self._file_exists(r"renovate\.json5?$", r"\.renovaterc(\.json)?$")
+        if renovate:
+            stack.append({"category": "Security", "tool": "Renovate", "purpose": "Automated dependency updates", "path": renovate})
+        pre_commit = self._file_exists(r"\.pre-commit-config\.ya?ml$")
+        if pre_commit:
+            stack.append({"category": "Security", "tool": "pre-commit", "purpose": "Git hook framework", "path": pre_commit})
+
+        # ── AI tooling ───────────────────────────────────────────────────
+        claude_md = self._file_exists(r"CLAUDE\.md$")
+        if claude_md:
+            stack.append({"category": "AI", "tool": "Claude Code", "purpose": "AI coding agent config", "path": claude_md})
+        cursor = self._file_exists(r"\.cursorrules$")
+        if cursor:
+            stack.append({"category": "AI", "tool": "Cursor", "purpose": "AI editor config", "path": cursor})
+
+        return stack
 
     # ── application classification ───────────────────────────────────────
 

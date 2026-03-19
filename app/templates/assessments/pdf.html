@@ -89,6 +89,24 @@
     </tbody>
 </table>
 
+{% set tech_responses = assessment.responses | selectattr('dimension', 'equalto', 'tech_stack') | list %}
+{% if tech_responses %}
+<h2>Technology Stack</h2>
+<table>
+    <thead><tr><th>Category</th><th>Tool</th><th>Purpose</th></tr></thead>
+    <tbody>
+        {% for resp in tech_responses %}
+        {% set parts = resp.notes.split(': ', 1) %}
+        <tr>
+            <td>{{ resp.question_key }}</td>
+            <td><strong>{{ parts[0] }}</strong></td>
+            <td>{{ parts[1] if parts | length > 1 else '' }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
 {% if quick_wins %}
 <h2>Quick Wins</h2>
 {% for rec in quick_wins %}
