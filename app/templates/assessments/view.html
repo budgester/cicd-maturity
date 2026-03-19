@@ -131,7 +131,13 @@
                     <span class="badge bg-secondary">not found</span>
                     {% endif %}
                     <span class="text-muted small">{{ resp.question_key }}</span>
-                    &mdash; {{ resp.notes }}
+                    &mdash;
+                    {% set browse_url = resp.file_path | repo_file_url(pipeline.repository_url) if resp.file_path else None %}
+                    {% if browse_url %}
+                    <a href="{{ browse_url }}" target="_blank" class="text-decoration-none">{{ resp.notes }}</a>
+                    {% else %}
+                    {{ resp.notes }}
+                    {% endif %}
                 </div>
                 {% endfor %}
                 {% if not dim_responses %}

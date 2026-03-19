@@ -185,8 +185,9 @@ class GitAnalyzer:
         score = 1
 
         # .gitignore
-        if self._file_exists(r"\.gitignore$"):
-            evidence.append({"check": "gitignore", "found": True, "detail": ".gitignore present"})
+        gitignore = self._file_exists(r"\.gitignore$")
+        if gitignore:
+            evidence.append({"check": "gitignore", "found": True, "detail": ".gitignore present", "path": gitignore})
             score = max(score, 2)
         else:
             evidence.append({"check": "gitignore", "found": False, "detail": "No .gitignore found"})
@@ -194,7 +195,7 @@ class GitAnalyzer:
         # README
         readme = self._file_exists(r"README(\.\w+)?$")
         if readme:
-            evidence.append({"check": "readme", "found": True, "detail": f"Found {readme}"})
+            evidence.append({"check": "readme", "found": True, "detail": f"Found {readme}", "path": readme})
             score = max(score, 2)
         else:
             evidence.append({"check": "readme", "found": False, "detail": "No README found"})
@@ -202,7 +203,7 @@ class GitAnalyzer:
         # CODEOWNERS
         codeowners = self._file_exists(r"(\.github/)?CODEOWNERS$", r"docs/CODEOWNERS$")
         if codeowners:
-            evidence.append({"check": "codeowners", "found": True, "detail": f"Found {codeowners}"})
+            evidence.append({"check": "codeowners", "found": True, "detail": f"Found {codeowners}", "path": codeowners})
             score = max(score, 3)
 
         # Infrastructure as code
@@ -210,7 +211,7 @@ class GitAnalyzer:
         tf_file = self._file_exists(r".*\.tf$")
         if iac_dir or tf_file:
             detail = iac_dir or tf_file
-            evidence.append({"check": "iac", "found": True, "detail": f"Infrastructure as code: {detail}"})
+            evidence.append({"check": "iac", "found": True, "detail": f"Infrastructure as code: {detail}", "path": tf_file or iac_dir})
             score = max(score, 4)
         else:
             evidence.append({"check": "iac", "found": False, "detail": "No infrastructure-as-code files found"})
@@ -298,7 +299,7 @@ class GitAnalyzer:
                     if re.search(pattern, path):
                         name = ci_name
                         break
-                evidence.append({"check": "ci_config", "found": True, "detail": f"{name}: {path}"})
+                evidence.append({"check": "ci_config", "found": True, "detail": f"{name}: {path}", "path": path})
             score = max(score, 3)
 
             if self._ci_content_has(ci_files, "cache"):
@@ -330,14 +331,14 @@ class GitAnalyzer:
         for pattern, name in build_tools.items():
             match = self._file_exists(pattern)
             if match:
-                evidence.append({"check": "build_tool", "found": True, "detail": f"Build tool: {name}"})
+                evidence.append({"check": "build_tool", "found": True, "detail": f"Build tool: {name}", "path": match})
                 score = max(score, 2)
                 break
 
         # Containerised build
         dockerfile = self._file_exists(r"Dockerfile$", r"Dockerfile\.\w+$")
         if dockerfile:
-            evidence.append({"check": "containerised_build", "found": True, "detail": f"Dockerfile: {dockerfile}"})
+            evidence.append({"check": "containerised_build", "found": True, "detail": f"Dockerfile: {dockerfile}", "path": dockerfile})
             score = max(score, 4)
         else:
             evidence.append({"check": "containerised_build", "found": False, "detail": "No Dockerfile found"})
@@ -358,7 +359,7 @@ class GitAnalyzer:
         for pattern, name in lock_patterns.items():
             match = self._file_exists(pattern)
             if match:
-                evidence.append({"check": "dependency_pinning", "found": True, "detail": f"Dependencies pinned via {name}"})
+                evidence.append({"check": "dependency_pinning", "found": True, "detail": f"Dependencies pinned via {name}", "path": match})
                 score = max(score, 3)
                 break
 
@@ -377,7 +378,7 @@ class GitAnalyzer:
         # Test directories
         test_dir = self._dir_exists("tests", "test", "spec", "__tests__", "test_suite")
         if test_dir:
-            evidence.append({"check": "test_directory", "found": True, "detail": f"Test directory: {test_dir}/"})
+            evidence.append({"check": "test_directory", "found": True, "detail": f"Test directory: {test_dir}/", "path": test_dir})
             score = max(score, 2)
         else:
             evidence.append({"check": "test_directory", "found": False, "detail": "No test directory found"})
@@ -423,7 +424,7 @@ class GitAnalyzer:
         if "coverage" in pyproject.lower():
             cov_file = cov_file or "pyproject.toml (coverage config)"
         if cov_file:
-            evidence.append({"check": "coverage_config", "found": True, "detail": f"Coverage configured: {cov_file}"})
+            evidence.append({"check": "coverage_config", "found": True, "detail": f"Coverage configured: {cov_file}", "path": cov_file})
             score = max(score, 3)
 
         if self._ci_content_has(ci_files, "coverage", "codecov", "coveralls"):
@@ -439,7 +440,7 @@ class GitAnalyzer:
         e2e_dir = self._dir_exists("cypress", "e2e", "playwright")
         if found_e2e or e2e_dir:
             detail = ", ".join(found_e2e) if found_e2e else e2e_dir
-            evidence.append({"check": "e2e_tests", "found": True, "detail": f"E2E testing: {detail}"})
+            evidence.append({"check": "e2e_tests", "found": True, "detail": f"E2E testing: {detail}", "path": e2e_dir})
             score = max(score, 4)
 
         # Performance testing
@@ -449,7 +450,7 @@ class GitAnalyzer:
         perf_file = self._file_exists(r"locustfile\.py$", r"artillery\.ya?ml$")
         if found_perf or perf_dir or perf_file:
             detail = ", ".join(found_perf) if found_perf else (perf_dir or perf_file)
-            evidence.append({"check": "performance_tests", "found": True, "detail": f"Performance testing: {detail}"})
+            evidence.append({"check": "performance_tests", "found": True, "detail": f"Performance testing: {detail}", "path": perf_dir or perf_file})
             score = max(score, 4)
 
         # Level 5: comprehensive testing pyramid
@@ -466,7 +467,7 @@ class GitAnalyzer:
         # Dockerfile
         dockerfile = self._file_exists(r"Dockerfile$", r"Dockerfile\.\w+$")
         if dockerfile:
-            evidence.append({"check": "dockerfile", "found": True, "detail": f"Containerised: {dockerfile}"})
+            evidence.append({"check": "dockerfile", "found": True, "detail": f"Containerised: {dockerfile}", "path": dockerfile})
             score = max(score, 2)
         else:
             evidence.append({"check": "dockerfile", "found": False, "detail": "No Dockerfile found"})
@@ -474,7 +475,7 @@ class GitAnalyzer:
         # Docker Compose
         compose = self._file_exists(r"docker-compose\.ya?ml$", r"compose\.ya?ml$")
         if compose:
-            evidence.append({"check": "docker_compose", "found": True, "detail": f"Docker Compose: {compose}"})
+            evidence.append({"check": "docker_compose", "found": True, "detail": f"Docker Compose: {compose}", "path": compose})
             score = max(score, 2)
 
         # Kubernetes / Helm
@@ -483,7 +484,7 @@ class GitAnalyzer:
         helm_chart = self._file_exists(r"Chart\.ya?ml$")
         if k8s_dir or kustomize or helm_chart:
             detail = k8s_dir or kustomize or helm_chart
-            evidence.append({"check": "k8s", "found": True, "detail": f"Kubernetes/Helm: {detail}"})
+            evidence.append({"check": "k8s", "found": True, "detail": f"Kubernetes/Helm: {detail}", "path": k8s_dir or kustomize or helm_chart})
             score = max(score, 3)
 
         # Other deployment platforms
@@ -499,7 +500,7 @@ class GitAnalyzer:
         for pattern, name in platform_files.items():
             match = self._file_exists(pattern)
             if match:
-                evidence.append({"check": "deploy_platform", "found": True, "detail": f"Platform: {name}"})
+                evidence.append({"check": "deploy_platform", "found": True, "detail": f"Platform: {name}", "path": match})
                 score = max(score, 3)
                 break
 
@@ -601,14 +602,14 @@ class GitAnalyzer:
         for pattern, name in monitoring_configs.items():
             match = self._file_exists(pattern)
             if match:
-                evidence.append({"check": "monitoring_config", "found": True, "detail": f"Monitoring config: {name}"})
+                evidence.append({"check": "monitoring_config", "found": True, "detail": f"Monitoring config: {name}", "path": match})
                 score = max(score, 3)
                 break
 
         # Alerting config
         alert_files = self._file_exists(r"alertmanager\.ya?ml$", r"alerts?\.ya?ml$", r"pagerduty\.ya?ml$")
         if alert_files:
-            evidence.append({"check": "alerting_config", "found": True, "detail": f"Alerting: {alert_files}"})
+            evidence.append({"check": "alerting_config", "found": True, "detail": f"Alerting: {alert_files}", "path": alert_files})
             score = max(score, 4)
 
         # Health check endpoints (look for common patterns in code)
@@ -632,8 +633,9 @@ class GitAnalyzer:
         score = 1
 
         # SECURITY.md
-        if self._file_exists(r"SECURITY\.md$"):
-            evidence.append({"check": "security_policy", "found": True, "detail": "SECURITY.md present"})
+        security_md = self._file_exists(r"SECURITY\.md$")
+        if security_md:
+            evidence.append({"check": "security_policy", "found": True, "detail": "SECURITY.md present", "path": security_md})
             score = max(score, 2)
 
         # Dependency scanning (Dependabot, Renovate, Snyk)
@@ -641,13 +643,13 @@ class GitAnalyzer:
         renovate = self._file_exists(r"renovate\.json5?$", r"\.renovaterc(\.json)?$")
         snyk = self._file_exists(r"\.snyk$")
         if dependabot:
-            evidence.append({"check": "dependency_scanning", "found": True, "detail": f"Dependabot: {dependabot}"})
+            evidence.append({"check": "dependency_scanning", "found": True, "detail": f"Dependabot: {dependabot}", "path": dependabot})
             score = max(score, 3)
         elif renovate:
-            evidence.append({"check": "dependency_scanning", "found": True, "detail": f"Renovate: {renovate}"})
+            evidence.append({"check": "dependency_scanning", "found": True, "detail": f"Renovate: {renovate}", "path": renovate})
             score = max(score, 3)
         elif snyk:
-            evidence.append({"check": "dependency_scanning", "found": True, "detail": f"Snyk: {snyk}"})
+            evidence.append({"check": "dependency_scanning", "found": True, "detail": f"Snyk: {snyk}", "path": snyk})
             score = max(score, 3)
         else:
             evidence.append({"check": "dependency_scanning", "found": False, "detail": "No dependency scanning configured (Dependabot, Renovate, or Snyk)"})
@@ -662,7 +664,7 @@ class GitAnalyzer:
         for pattern, name in sast_configs.items():
             match = self._file_exists(pattern)
             if match:
-                evidence.append({"check": "sast_config", "found": True, "detail": f"SAST: {name}"})
+                evidence.append({"check": "sast_config", "found": True, "detail": f"SAST: {name}", "path": match})
                 score = max(score, 3)
                 break
 
@@ -680,7 +682,7 @@ class GitAnalyzer:
         pre_commit = self._file_exists(r"\.pre-commit-config\.ya?ml$")
         if pre_commit:
             content = self._read_file(pre_commit).lower()
-            evidence.append({"check": "pre_commit", "found": True, "detail": "Pre-commit hooks configured"})
+            evidence.append({"check": "pre_commit", "found": True, "detail": "Pre-commit hooks configured", "path": pre_commit})
             score = max(score, 2)
             if any(kw in content for kw in ["detect-secrets", "bandit", "safety", "gitleaks", "trufflehog"]):
                 evidence.append({"check": "secret_detection", "found": True, "detail": "Secret detection in pre-commit hooks"})
@@ -706,13 +708,13 @@ class GitAnalyzer:
         # .env.example / .env.sample
         env_example = self._file_exists(r"\.env\.example$", r"\.env\.sample$", r"\.env\.template$")
         if env_example:
-            evidence.append({"check": "env_template", "found": True, "detail": f"Environment template: {env_example}"})
+            evidence.append({"check": "env_template", "found": True, "detail": f"Environment template: {env_example}", "path": env_example})
             score = max(score, 2)
 
         # Config directory
         config_dir = self._dir_exists("config", "conf", "settings", "cfg")
         if config_dir:
-            evidence.append({"check": "config_directory", "found": True, "detail": f"Configuration directory: {config_dir}/"})
+            evidence.append({"check": "config_directory", "found": True, "detail": f"Configuration directory: {config_dir}/", "path": config_dir})
             score = max(score, 2)
 
         # Docker for environment parity
@@ -720,13 +722,13 @@ class GitAnalyzer:
         compose = self._file_exists(r"docker-compose\.ya?ml$", r"compose\.ya?ml$")
         devcontainer = self._file_exists(r"\.devcontainer/devcontainer\.json$", r"\.devcontainer\.json$")
         if dockerfile:
-            evidence.append({"check": "container_parity", "found": True, "detail": "Dockerfile enables environment parity"})
+            evidence.append({"check": "container_parity", "found": True, "detail": "Dockerfile enables environment parity", "path": dockerfile})
             score = max(score, 3)
         if compose:
-            evidence.append({"check": "compose_parity", "found": True, "detail": f"Docker Compose for local environment: {compose}"})
+            evidence.append({"check": "compose_parity", "found": True, "detail": f"Docker Compose for local environment: {compose}", "path": compose})
             score = max(score, 3)
         if devcontainer:
-            evidence.append({"check": "devcontainer", "found": True, "detail": "Dev container configured for consistent dev environments"})
+            evidence.append({"check": "devcontainer", "found": True, "detail": "Dev container configured for consistent dev environments", "path": devcontainer})
             score = max(score, 4)
 
         # Environment-specific config files
@@ -741,20 +743,20 @@ class GitAnalyzer:
         # IaC (shared with version_control but relevant here for config-as-code)
         iac_dir = self._dir_exists("terraform", "pulumi", "cloudformation", "ansible")
         if iac_dir:
-            evidence.append({"check": "config_as_code", "found": True, "detail": f"Configuration as code: {iac_dir}/"})
+            evidence.append({"check": "config_as_code", "found": True, "detail": f"Configuration as code: {iac_dir}/", "path": iac_dir})
             score = max(score, 4)
 
         # GitOps indicators
         gitops_files = self._file_exists(r"argocd/", r"flux/", r"fluxcd/")
         gitops_dir = self._dir_exists("argocd", "flux", "fluxcd", "gitops")
         if gitops_files or gitops_dir:
-            evidence.append({"check": "gitops", "found": True, "detail": f"GitOps: {gitops_files or gitops_dir}"})
+            evidence.append({"check": "gitops", "found": True, "detail": f"GitOps: {gitops_files or gitops_dir}", "path": gitops_files or gitops_dir})
             score = max(score, 5)
 
         # EditorConfig
         editorconfig = self._file_exists(r"\.editorconfig$")
         if editorconfig:
-            evidence.append({"check": "editorconfig", "found": True, "detail": "EditorConfig for consistent coding styles"})
+            evidence.append({"check": "editorconfig", "found": True, "detail": "EditorConfig for consistent coding styles", "path": editorconfig})
             score = max(score, 2)
 
         if not any(e["found"] for e in evidence):
@@ -866,7 +868,7 @@ class GitAnalyzer:
         claude_md = self._file_exists(r"CLAUDE\.md$", r"claude\.md$")
         if claude_md:
             content = self._read_file(claude_md)
-            evidence.append({"check": "claude_md", "found": True, "detail": f"Claude Code config: {claude_md} ({len(content)} chars)"})
+            evidence.append({"check": "claude_md", "found": True, "detail": f"Claude Code config: {claude_md} ({len(content)} chars)", "path": claude_md})
             score = max(score, 3)
             if len(content) > 500:
                 evidence.append({"check": "claude_md_detailed", "found": True, "detail": "Detailed AI agent instructions (>500 chars)"})
@@ -876,7 +878,7 @@ class GitAnalyzer:
 
         cursor_rules = self._file_exists(r"\.cursorrules$", r"\.cursor/rules$", r"\.cursor/.*\.mdc$")
         if cursor_rules:
-            evidence.append({"check": "cursor_rules", "found": True, "detail": f"Cursor AI config: {cursor_rules}"})
+            evidence.append({"check": "cursor_rules", "found": True, "detail": f"Cursor AI config: {cursor_rules}", "path": cursor_rules})
             score = max(score, 3)
 
         copilot_instructions = self._file_exists(
@@ -884,24 +886,24 @@ class GitAnalyzer:
             r"\.github/copilot\.yml$",
         )
         if copilot_instructions:
-            evidence.append({"check": "copilot_config", "found": True, "detail": f"GitHub Copilot config: {copilot_instructions}"})
+            evidence.append({"check": "copilot_config", "found": True, "detail": f"GitHub Copilot config: {copilot_instructions}", "path": copilot_instructions})
             score = max(score, 3)
 
         aider_config = self._file_exists(r"\.aider\.conf\.yml$", r"\.aiderignore$")
         if aider_config:
-            evidence.append({"check": "aider_config", "found": True, "detail": f"Aider config: {aider_config}"})
+            evidence.append({"check": "aider_config", "found": True, "detail": f"Aider config: {aider_config}", "path": aider_config})
             score = max(score, 3)
 
         coderabbit = self._file_exists(r"\.coderabbit\.ya?ml$")
         if coderabbit:
-            evidence.append({"check": "coderabbit_config", "found": True, "detail": f"CodeRabbit AI review: {coderabbit}"})
+            evidence.append({"check": "coderabbit_config", "found": True, "detail": f"CodeRabbit AI review: {coderabbit}", "path": coderabbit})
             score = max(score, 3)
 
         # ── AI memory and context systems ────────────────────────────────
 
         claude_dir = self._dir_exists(".claude")
         if claude_dir:
-            evidence.append({"check": "claude_memory", "found": True, "detail": ".claude/ directory (AI memory/settings)"})
+            evidence.append({"check": "claude_memory", "found": True, "detail": ".claude/ directory (AI memory/settings)", "path": claude_dir})
             score = max(score, 4)
             memory_files = self._files_matching(r"\.claude/.*\.md$", r"\.claude/.*\.json$")
             if len(memory_files) > 2:
@@ -910,7 +912,7 @@ class GitAnalyzer:
 
         agents_md = self._file_exists(r"AGENTS\.md$", r"agents\.md$")
         if agents_md:
-            evidence.append({"check": "agents_md", "found": True, "detail": f"Agent instructions: {agents_md}"})
+            evidence.append({"check": "agents_md", "found": True, "detail": f"Agent instructions: {agents_md}", "path": agents_md})
             score = max(score, 4)
 
         # ── MCP server configuration ────────────────────────────────────
@@ -922,7 +924,7 @@ class GitAnalyzer:
             r"mcp-servers\.json$",
         )
         if mcp_config:
-            evidence.append({"check": "mcp_servers", "found": True, "detail": f"MCP server config: {mcp_config}"})
+            evidence.append({"check": "mcp_servers", "found": True, "detail": f"MCP server config: {mcp_config}", "path": mcp_config})
             score = max(score, 5)
 
         # ── AI co-authorship in commits (AI-built vs human-built) ────────
@@ -1007,7 +1009,7 @@ class GitAnalyzer:
         if hooks_config:
             content = self._read_file(hooks_config).lower()
             if "hook" in content:
-                evidence.append({"check": "claude_hooks", "found": True, "detail": "Claude Code hooks configured"})
+                evidence.append({"check": "claude_hooks", "found": True, "detail": "Claude Code hooks configured", "path": hooks_config})
                 score = max(score, 5)
 
         if not any(e["found"] for e in evidence):

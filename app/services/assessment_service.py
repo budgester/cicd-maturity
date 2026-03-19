@@ -48,6 +48,7 @@ def create_assessment_from_repo(pipeline_id, repo_url, assessed_by=None):
                 question_key=ev["check"],
                 score=1 if ev["found"] else 0,
                 notes=ev["detail"],
+                file_path=ev.get("path"),
             )
             db.session.add(response)
 

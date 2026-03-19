@@ -101,6 +101,7 @@ class DimensionResponse(db.Model):
     question_key = db.Column(db.String(100), nullable=False)
     score = db.Column(db.Integer, nullable=False)
     notes = db.Column(db.Text)
+    file_path = db.Column(db.String(500))
 
     def __repr__(self):
         return f"<DimensionResponse {self.dimension}.{self.question_key}={self.score}>"
