@@ -70,6 +70,29 @@
             </tbody>
         </table>
         {% endfor %}
+
+        {% if recommendations.get(dim_key) %}
+        <h5 class="mt-4">Improvement Guide</h5>
+        {% for level in range(2, 6) %}
+        {% set rec = recommendations[dim_key].get(level) %}
+        {% if rec %}
+        <div class="card rec-card rec-{{ rec.priority }} mb-2">
+            <div class="card-body py-2">
+                <span class="badge bg-{{ 'danger' if rec.priority == 'high' else 'warning' if rec.priority == 'medium' else 'secondary' }}">{{ rec.priority }}</span>
+                <span class="badge maturity-level-{{ level }}">Level {{ level }}</span>
+                <strong>{{ rec.title }}</strong>
+                <p class="small mb-1">{{ rec.description }}</p>
+                <ul class="small mb-1">
+                    {% for action in rec.actions %}
+                    <li>{{ action }}</li>
+                    {% endfor %}
+                </ul>
+                <p class="small text-muted mb-0">{{ rec.reference }}</p>
+            </div>
+        </div>
+        {% endif %}
+        {% endfor %}
+        {% endif %}
     </div>
 </div>
 {% endfor %}

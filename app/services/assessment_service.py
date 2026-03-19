@@ -40,6 +40,17 @@ def create_assessment_from_repo(pipeline_id, repo_url, assessed_by=None):
     db.session.add(assessment)
     db.session.flush()
 
+    # Store tech stack
+    for item in results.get("tech_stack", []):
+        db.session.add(DimensionResponse(
+            assessment_id=assessment.id,
+            dimension="tech_stack",
+            question_key=item["category"],
+            score=1,
+            notes=f"{item['tool']}: {item['purpose']}",
+            file_path=item.get("path") or None,
+        ))
+
     for dim, data in dimensions.items():
         for ev in data["evidence"]:
             response = DimensionResponse(

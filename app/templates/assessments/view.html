@@ -111,6 +111,32 @@
 {% endfor %}
 {% endif %}
 
+{% set tech_responses = assessment.responses | selectattr('dimension', 'equalto', 'tech_stack') | list %}
+{% if tech_responses %}
+<h2 class="mt-4">Technology Stack</h2>
+<div class="card mb-4">
+    <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+            <thead><tr><th>Category</th><th>Tool</th><th>Purpose</th><th></th></tr></thead>
+            <tbody>
+                {% for resp in tech_responses %}
+                {% set parts = resp.notes.split(': ', 1) %}
+                <tr>
+                    <td><span class="badge bg-secondary">{{ resp.question_key }}</span></td>
+                    <td><strong>{{ parts[0] }}</strong></td>
+                    <td>{{ parts[1] if parts | length > 1 else '' }}</td>
+                    <td>
+                        {% set browse_url = resp.file_path | repo_file_url(pipeline.repository_url) if resp.file_path else None %}
+                        {% if browse_url %}<a href="{{ browse_url }}" target="_blank" class="btn btn-sm btn-outline-secondary py-0">view</a>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
 <h2 class="mt-4">Evidence</h2>
 {% for dim_key, dim in dimensions.items() %}
 {% set dim_responses = assessment.responses | selectattr('dimension', 'equalto', dim_key) | list %}
