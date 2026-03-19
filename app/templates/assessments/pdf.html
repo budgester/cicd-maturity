@@ -48,6 +48,7 @@
     {{ pipeline.name }} ({{ pipeline.team }}) &mdash; {{ pipeline.repository_url }}<br>
     Assessed: {{ assessment.assessed_at.strftime('%Y-%m-%d %H:%M UTC') }}
     {% if assessment.assessed_by %} by {{ assessment.assessed_by }}{% endif %}
+    {% if assessment.application_type %}<br>Application type: <strong>{{ assessment.application_type_label }}</strong> ({{ assessment.classification_confidence }}% confidence){% endif %}
 </p>
 
 <table>

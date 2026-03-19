@@ -16,19 +16,28 @@ class GitAnalyzer:
         self._deps_cache = None
 
     def analyze(self):
-        """Clone the repo and run all dimension checks. Returns dict of dimension -> {score, evidence}."""
+        """Clone the repo and run all dimension checks.
+
+        Returns dict with:
+            "dimensions": {dimension -> {score, evidence}}
+            "classification": {type, confidence, signals}
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             self.repo_path = Path(tmpdir) / "repo"
             self._clone()
             return {
-                "version_control": self._check_version_control(),
-                "build_process": self._check_build_process(),
-                "testing": self._check_testing(),
-                "deployment": self._check_deployment(),
-                "monitoring": self._check_monitoring(),
-                "security": self._check_security(),
-                "configuration_management": self._check_configuration_management(),
-                "feedback_loops": self._check_feedback_loops(),
+                "dimensions": {
+                    "version_control": self._check_version_control(),
+                    "build_process": self._check_build_process(),
+                    "testing": self._check_testing(),
+                    "deployment": self._check_deployment(),
+                    "monitoring": self._check_monitoring(),
+                    "security": self._check_security(),
+                    "configuration_management": self._check_configuration_management(),
+                    "feedback_loops": self._check_feedback_loops(),
+                    "ai_readiness": self._check_ai_readiness(),
+                },
+                "classification": self._classify_application(),
             }
 
     def _clone(self):
@@ -846,3 +855,457 @@ class GitAnalyzer:
             score = max(score, 4)
 
         return {"score": min(score, 5), "evidence": evidence}
+
+    def _check_ai_readiness(self):
+        evidence = []
+        score = 1
+        deps = self._get_dependencies()
+
+        # ── AI agent configuration files ─────────────────────────────────
+
+        claude_md = self._file_exists(r"CLAUDE\.md$", r"claude\.md$")
+        if claude_md:
+            content = self._read_file(claude_md)
+            evidence.append({"check": "claude_md", "found": True, "detail": f"Claude Code config: {claude_md} ({len(content)} chars)"})
+            score = max(score, 3)
+            if len(content) > 500:
+                evidence.append({"check": "claude_md_detailed", "found": True, "detail": "Detailed AI agent instructions (>500 chars)"})
+                score = max(score, 4)
+        else:
+            evidence.append({"check": "claude_md", "found": False, "detail": "No CLAUDE.md found"})
+
+        cursor_rules = self._file_exists(r"\.cursorrules$", r"\.cursor/rules$", r"\.cursor/.*\.mdc$")
+        if cursor_rules:
+            evidence.append({"check": "cursor_rules", "found": True, "detail": f"Cursor AI config: {cursor_rules}"})
+            score = max(score, 3)
+
+        copilot_instructions = self._file_exists(
+            r"\.github/copilot-instructions\.md$",
+            r"\.github/copilot\.yml$",
+        )
+        if copilot_instructions:
+            evidence.append({"check": "copilot_config", "found": True, "detail": f"GitHub Copilot config: {copilot_instructions}"})
+            score = max(score, 3)
+
+        aider_config = self._file_exists(r"\.aider\.conf\.yml$", r"\.aiderignore$")
+        if aider_config:
+            evidence.append({"check": "aider_config", "found": True, "detail": f"Aider config: {aider_config}"})
+            score = max(score, 3)
+
+        coderabbit = self._file_exists(r"\.coderabbit\.ya?ml$")
+        if coderabbit:
+            evidence.append({"check": "coderabbit_config", "found": True, "detail": f"CodeRabbit AI review: {coderabbit}"})
+            score = max(score, 3)
+
+        # ── AI memory and context systems ────────────────────────────────
+
+        claude_dir = self._dir_exists(".claude")
+        if claude_dir:
+            evidence.append({"check": "claude_memory", "found": True, "detail": ".claude/ directory (AI memory/settings)"})
+            score = max(score, 4)
+            memory_files = self._files_matching(r"\.claude/.*\.md$", r"\.claude/.*\.json$")
+            if len(memory_files) > 2:
+                evidence.append({"check": "claude_memory_rich", "found": True, "detail": f"{len(memory_files)} AI memory/config files in .claude/"})
+                score = max(score, 5)
+
+        agents_md = self._file_exists(r"AGENTS\.md$", r"agents\.md$")
+        if agents_md:
+            evidence.append({"check": "agents_md", "found": True, "detail": f"Agent instructions: {agents_md}"})
+            score = max(score, 4)
+
+        # ── MCP server configuration ────────────────────────────────────
+
+        mcp_config = self._file_exists(
+            r"\.claude/mcp.*\.json$",
+            r"mcp\.json$",
+            r"\.mcp\.json$",
+            r"mcp-servers\.json$",
+        )
+        if mcp_config:
+            evidence.append({"check": "mcp_servers", "found": True, "detail": f"MCP server config: {mcp_config}"})
+            score = max(score, 5)
+
+        # ── AI co-authorship in commits (AI-built vs human-built) ────────
+
+        log_full = self._git("log", "--format=%s%n%b", "-100").lower()
+        ai_coauthor_patterns = [
+            "co-authored-by: claude",
+            "co-authored-by: github copilot",
+            "co-authored-by: cursor",
+            "co-authored-by: aider",
+            "co-authored-by: codeium",
+            "co-authored-by: amazon q",
+            "generated with claude",
+            "generated by copilot",
+        ]
+        ai_mention_count = sum(log_full.count(p) for p in ai_coauthor_patterns)
+
+        if ai_mention_count > 0:
+            total_output = self._git("log", "--oneline", "-100")
+            total_commits = len([l for l in total_output.strip().splitlines() if l.strip()])
+
+            if total_commits > 0:
+                pct = min((ai_mention_count / total_commits) * 100, 100)
+                if pct > 80:
+                    evidence.append({"check": "ai_coauthored", "found": True, "detail": f"~{pct:.0f}% of commits AI co-authored (primarily AI-built)"})
+                    score = max(score, 5)
+                elif pct > 50:
+                    evidence.append({"check": "ai_coauthored", "found": True, "detail": f"~{pct:.0f}% of commits AI co-authored (majority AI-assisted)"})
+                    score = max(score, 4)
+                elif pct > 20:
+                    evidence.append({"check": "ai_coauthored", "found": True, "detail": f"~{pct:.0f}% of commits AI co-authored (regular AI use)"})
+                    score = max(score, 3)
+                else:
+                    evidence.append({"check": "ai_coauthored", "found": True, "detail": f"~{pct:.0f}% of commits AI co-authored (occasional AI use)"})
+                    score = max(score, 2)
+        else:
+            evidence.append({"check": "ai_coauthored", "found": False, "detail": "No AI co-authorship detected in commits"})
+
+        # ── AI/ML libraries in dependencies ──────────────────────────────
+
+        ai_sdks = {
+            "openai", "anthropic", "google-generativeai", "cohere",
+            "mistralai", "groq", "replicate", "together",
+        }
+        found_sdks = deps & ai_sdks
+        if found_sdks:
+            evidence.append({"check": "ai_sdk", "found": True, "detail": f"AI SDK: {', '.join(found_sdks)}"})
+            score = max(score, 2)
+
+        ai_frameworks = {
+            "langchain", "langchain-core", "langchain-community",
+            "llama-index", "llama_index", "llamaindex",
+            "semantic-kernel",
+            "autogen", "crewai", "agency-swarm",
+            "haystack", "dspy", "instructor",
+            "transformers", "torch", "tensorflow",
+            "sentence-transformers", "chromadb", "pinecone-client",
+            "weaviate-client", "qdrant-client", "pgvector",
+        }
+        found_frameworks = deps & ai_frameworks
+        if found_frameworks:
+            evidence.append({"check": "ai_framework", "found": True, "detail": f"AI framework: {', '.join(found_frameworks)}"})
+            score = max(score, 3)
+
+        # Agent/tool-use patterns in code
+        agent_patterns = [
+            "tool_use", "tool_call", "function_calling",
+            "create_agent", "agent_executor", "agentic",
+            "rag_pipeline", "retrieval_chain",
+        ]
+        for f in self._files_matching(r".*\.(py|js|ts)$"):
+            content = self._read_file(f).lower()
+            found_patterns = [p for p in agent_patterns if p in content]
+            if found_patterns:
+                evidence.append({"check": "agent_patterns", "found": True, "detail": f"Agent/tool-use patterns in code: {', '.join(found_patterns[:3])}"})
+                score = max(score, 4)
+                break
+
+        # ── Claude Code hooks ────────────────────────────────────────────
+
+        hooks_config = self._file_exists(r"\.claude/settings\.json$", r"\.claude/hooks\.json$")
+        if hooks_config:
+            content = self._read_file(hooks_config).lower()
+            if "hook" in content:
+                evidence.append({"check": "claude_hooks", "found": True, "detail": "Claude Code hooks configured"})
+                score = max(score, 5)
+
+        if not any(e["found"] for e in evidence):
+            evidence.append({"check": "ai_readiness", "found": False, "detail": "No AI tooling or configuration detected"})
+
+        return {"score": min(score, 5), "evidence": evidence}
+
+    # ── application classification ───────────────────────────────────────
+
+    APPLICATION_TYPES = {
+        "web_app": "Web Application",
+        "api_service": "API Service",
+        "library": "Library / Package",
+        "cli_tool": "CLI Tool",
+        "infrastructure": "Infrastructure / IaC",
+        "data_pipeline": "Data Pipeline",
+        "ml_ai": "ML / AI Application",
+        "mobile_app": "Mobile Application",
+        "static_site": "Static Site",
+        "desktop_app": "Desktop Application",
+        "monorepo": "Monorepo",
+        "unknown": "Unknown",
+    }
+
+    def _classify_application(self):
+        deps = self._get_dependencies()
+        signals = []
+        scores = {}  # type -> weighted score
+
+        # ── Web Application ──────────────────────────────────────────────
+        web_frameworks = {
+            "flask", "django", "fastapi", "starlette",
+            "express", "koa", "hapi", "next", "nuxt", "remix",
+            "rails", "sinatra",
+            "spring-boot", "spring-web",
+            "gin", "echo", "fiber",
+            "actix-web", "rocket", "axum",
+            "laravel", "symfony",
+            "phoenix",
+        }
+        found_web = deps & web_frameworks
+        if found_web:
+            signals.append(f"Web framework: {', '.join(found_web)}")
+            scores["web_app"] = scores.get("web_app", 0) + 5
+
+        templates_dir = self._dir_exists("templates", "views", "pages")
+        if templates_dir:
+            signals.append(f"Templates directory: {templates_dir}/")
+            scores["web_app"] = scores.get("web_app", 0) + 3
+
+        static_dir = self._dir_exists("static", "public", "assets")
+        if static_dir:
+            signals.append(f"Static assets: {static_dir}/")
+            scores["web_app"] = scores.get("web_app", 0) + 1
+
+        # ── API Service ──────────────────────────────────────────────────
+        api_frameworks = {"fastapi", "starlette", "connexion", "graphene", "strawberry", "ariadne"}
+        found_api = deps & api_frameworks
+        if found_api:
+            signals.append(f"API framework: {', '.join(found_api)}")
+            scores["api_service"] = scores.get("api_service", 0) + 5
+
+        openapi = self._file_exists(r"openapi\.ya?ml$", r"swagger\.ya?ml$", r"swagger\.json$", r"openapi\.json$")
+        if openapi:
+            signals.append(f"API spec: {openapi}")
+            scores["api_service"] = scores.get("api_service", 0) + 4
+
+        graphql_schema = self._file_exists(r".*\.graphql$", r"schema\.gql$")
+        if graphql_schema:
+            signals.append(f"GraphQL schema: {graphql_schema}")
+            scores["api_service"] = scores.get("api_service", 0) + 4
+
+        # Web frameworks without templates lean toward API
+        if found_web and not templates_dir:
+            scores["api_service"] = scores.get("api_service", 0) + 3
+
+        # ── Library / Package ────────────────────────────────────────────
+        pyproject = self._read_file("pyproject.toml")
+        if "[build-system]" in pyproject:
+            signals.append("Python build-system in pyproject.toml")
+            scores["library"] = scores.get("library", 0) + 3
+
+        setup_py = self._file_exists(r"setup\.py$", r"setup\.cfg$")
+        if setup_py:
+            signals.append(f"Package setup: {setup_py}")
+            scores["library"] = scores.get("library", 0) + 3
+
+        pkg_json = self._read_file("package.json")
+        if pkg_json:
+            import json as _json
+            try:
+                pkg = _json.loads(pkg_json)
+                if "main" in pkg or "exports" in pkg or "module" in pkg:
+                    signals.append("package.json with main/exports (library)")
+                    scores["library"] = scores.get("library", 0) + 4
+                if pkg.get("private") is True:
+                    scores["library"] = scores.get("library", 0) - 3
+            except (ValueError, _json.JSONDecodeError):
+                pass
+
+        cargo_toml = self._read_file("Cargo.toml")
+        if "[lib]" in cargo_toml:
+            signals.append("Rust library crate")
+            scores["library"] = scores.get("library", 0) + 4
+
+        gemspec = self._file_exists(r".*\.gemspec$")
+        if gemspec:
+            signals.append(f"Ruby gem: {gemspec}")
+            scores["library"] = scores.get("library", 0) + 5
+
+        # ── CLI Tool ─────────────────────────────────────────────────────
+        cli_libs = {
+            "click", "typer", "argparse", "fire",
+            "commander", "yargs", "inquirer", "oclif",
+            "cobra", "urfave-cli",
+            "clap", "structopt",
+            "thor", "gli",
+        }
+        found_cli = deps & cli_libs
+        if found_cli:
+            signals.append(f"CLI library: {', '.join(found_cli)}")
+            scores["cli_tool"] = scores.get("cli_tool", 0) + 4
+
+        if "console_scripts" in pyproject or "console_scripts" in self._read_file("setup.cfg"):
+            signals.append("console_scripts entry point defined")
+            scores["cli_tool"] = scores.get("cli_tool", 0) + 5
+
+        if pkg_json:
+            try:
+                pkg = _json.loads(pkg_json)
+                if "bin" in pkg:
+                    signals.append("package.json bin entry (CLI)")
+                    scores["cli_tool"] = scores.get("cli_tool", 0) + 5
+            except (ValueError, _json.JSONDecodeError):
+                pass
+
+        # ── Infrastructure / IaC ─────────────────────────────────────────
+        iac_dir = self._dir_exists("terraform", "pulumi", "cloudformation", "ansible", "infrastructure", "cdk")
+        tf_files = self._files_matching(r".*\.tf$")
+        if iac_dir or tf_files:
+            signals.append(f"Infrastructure as code: {iac_dir or 'Terraform files'}")
+            scores["infrastructure"] = scores.get("infrastructure", 0) + 6
+
+        helm_dir = self._dir_exists("helm", "charts")
+        kustomize = self._file_exists(r"kustomization\.ya?ml$")
+        if helm_dir or kustomize:
+            signals.append(f"Kubernetes config: {helm_dir or kustomize}")
+            scores["infrastructure"] = scores.get("infrastructure", 0) + 4
+
+        # ── Data Pipeline ────────────────────────────────────────────────
+        data_deps = {
+            "airflow", "apache-airflow", "prefect", "dagster", "luigi",
+            "dbt-core", "dbt",
+            "pyspark", "apache-spark",
+            "pandas", "polars",
+            "great-expectations", "great_expectations",
+        }
+        found_data = deps & data_deps
+        if found_data:
+            signals.append(f"Data tools: {', '.join(found_data)}")
+            scores["data_pipeline"] = scores.get("data_pipeline", 0) + 4
+
+        dags_dir = self._dir_exists("dags", "pipelines", "etl")
+        dbt_dir = self._dir_exists("models", "dbt")
+        if dags_dir:
+            signals.append(f"Pipeline directory: {dags_dir}/")
+            scores["data_pipeline"] = scores.get("data_pipeline", 0) + 4
+        if dbt_dir and self._file_exists(r"dbt_project\.yml$"):
+            signals.append("dbt project")
+            scores["data_pipeline"] = scores.get("data_pipeline", 0) + 5
+
+        # ── ML / AI Application ──────────────────────────────────────────
+        ml_deps = {
+            "scikit-learn", "sklearn", "xgboost", "lightgbm", "catboost",
+            "transformers", "torch", "pytorch", "tensorflow", "keras", "jax",
+            "mlflow", "wandb", "optuna", "ray",
+            "sentence-transformers", "huggingface-hub",
+        }
+        found_ml = deps & ml_deps
+        if found_ml:
+            signals.append(f"ML/AI libraries: {', '.join(found_ml)}")
+            scores["ml_ai"] = scores.get("ml_ai", 0) + 5
+
+        notebooks = self._files_matching(r".*\.ipynb$")
+        if notebooks:
+            signals.append(f"{len(notebooks)} Jupyter notebook(s)")
+            scores["ml_ai"] = scores.get("ml_ai", 0) + 2
+
+        model_dir = self._dir_exists("models", "model", "checkpoints", "weights")
+        if model_dir and found_ml:
+            signals.append(f"Model directory: {model_dir}/")
+            scores["ml_ai"] = scores.get("ml_ai", 0) + 2
+
+        # ── Mobile Application ───────────────────────────────────────────
+        mobile_deps = {"react-native", "expo", "flutter", "@ionic/core", "capacitor"}
+        found_mobile = deps & mobile_deps
+        if found_mobile:
+            signals.append(f"Mobile framework: {', '.join(found_mobile)}")
+            scores["mobile_app"] = scores.get("mobile_app", 0) + 6
+
+        ios_dir = self._dir_exists("ios", "macos")
+        android_dir = self._dir_exists("android")
+        if ios_dir or android_dir:
+            signals.append(f"Mobile platforms: {', '.join(filter(None, [ios_dir, android_dir]))}")
+            scores["mobile_app"] = scores.get("mobile_app", 0) + 4
+
+        flutter = self._file_exists(r"pubspec\.ya?ml$")
+        if flutter:
+            signals.append("Flutter project (pubspec.yaml)")
+            scores["mobile_app"] = scores.get("mobile_app", 0) + 6
+
+        # ── Static Site ──────────────────────────────────────────────────
+        static_generators = {
+            "gatsby", "hugo", "jekyll", "eleventy", "@11ty/eleventy",
+            "astro", "vitepress", "docusaurus", "mkdocs",
+        }
+        found_static = deps & static_generators
+        if found_static:
+            signals.append(f"Static site generator: {', '.join(found_static)}")
+            scores["static_site"] = scores.get("static_site", 0) + 6
+
+        jekyll_config = self._file_exists(r"_config\.ya?ml$")
+        hugo_config = self._file_exists(r"hugo\.(toml|yaml|json)$")
+        mkdocs_config = self._file_exists(r"mkdocs\.ya?ml$")
+        if jekyll_config or hugo_config or mkdocs_config:
+            signals.append(f"Static site config: {jekyll_config or hugo_config or mkdocs_config}")
+            scores["static_site"] = scores.get("static_site", 0) + 5
+
+        # ── Desktop Application ──────────────────────────────────────────
+        desktop_deps = {
+            "electron", "tauri", "pyqt5", "pyqt6", "pyside6",
+            "tkinter", "wxpython", "kivy", "flet",
+        }
+        found_desktop = deps & desktop_deps
+        if found_desktop:
+            signals.append(f"Desktop framework: {', '.join(found_desktop)}")
+            scores["desktop_app"] = scores.get("desktop_app", 0) + 6
+
+        electron_config = self._file_exists(r"electron\.js$", r"electron-builder\.ya?ml$")
+        tauri_config = self._file_exists(r"tauri\.conf\.json$")
+        if electron_config or tauri_config:
+            signals.append(f"Desktop config: {electron_config or tauri_config}")
+            scores["desktop_app"] = scores.get("desktop_app", 0) + 4
+
+        # ── Monorepo ─────────────────────────────────────────────────────
+        monorepo_markers = {
+            "lerna", "nx", "@nrwl/workspace", "turborepo",
+        }
+        found_mono = deps & monorepo_markers
+        if found_mono:
+            signals.append(f"Monorepo tool: {', '.join(found_mono)}")
+            scores["monorepo"] = scores.get("monorepo", 0) + 6
+
+        workspaces_dir = self._dir_exists("packages", "apps", "services", "libs")
+        lerna_json = self._file_exists(r"lerna\.json$", r"nx\.json$", r"turbo\.json$", r"pnpm-workspace\.yaml$")
+        if lerna_json:
+            signals.append(f"Monorepo config: {lerna_json}")
+            scores["monorepo"] = scores.get("monorepo", 0) + 5
+        elif workspaces_dir:
+            # Only count if there's evidence of multiple sub-projects
+            sub_pkg = self._files_matching(r"(packages|apps|services)/[^/]+/package\.json$")
+            sub_pyproject = self._files_matching(r"(packages|apps|services)/[^/]+/pyproject\.toml$")
+            if len(sub_pkg) + len(sub_pyproject) >= 2:
+                signals.append(f"Multiple sub-projects in {workspaces_dir}/")
+                scores["monorepo"] = scores.get("monorepo", 0) + 4
+
+        # ── Determine primary type ───────────────────────────────────────
+        if not scores:
+            return {
+                "primary_type": "unknown",
+                "primary_label": self.APPLICATION_TYPES["unknown"],
+                "confidence": 0,
+                "all_types": [],
+                "signals": signals or ["No recognisable application patterns detected"],
+            }
+
+        max_score = max(scores.values())
+        primary = max(scores, key=scores.get)
+
+        # Calculate confidence as ratio of top score to total
+        total = sum(scores.values())
+        confidence = round((max_score / total) * 100) if total > 0 else 0
+
+        # Build ranked list of all detected types
+        all_types = sorted(
+            [
+                {"type": t, "label": self.APPLICATION_TYPES.get(t, t), "score": s}
+                for t, s in scores.items()
+                if s > 0
+            ],
+            key=lambda x: x["score"],
+            reverse=True,
+        )
+
+        return {
+            "primary_type": primary,
+            "primary_label": self.APPLICATION_TYPES.get(primary, primary),
+            "confidence": confidence,
+            "all_types": all_types,
+            "signals": signals,
+        }

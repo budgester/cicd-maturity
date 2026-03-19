@@ -11,6 +11,13 @@
         </p>
     </div>
     <div class="text-end">
+        {% if assessment.application_type %}
+        <span class="badge bg-dark fs-6 mb-1">{{ assessment.application_type_label }}</span>
+        {% if assessment.classification_confidence %}
+        <span class="text-muted small">({{ assessment.classification_confidence }}% confidence)</span>
+        {% endif %}
+        <br>
+        {% endif %}
         <span class="badge maturity-badge maturity-level-{{ assessment.overall_score }} fs-4">
             Level {{ assessment.overall_score }}: {{ assessment.maturity_label }}
         </span>
@@ -36,7 +43,7 @@
                         {% for dim_key, dim in dimensions.items() %}
                         {% set score = assessment.dimension_scores[dim_key] %}
                         <tr>
-                            <td>{{ dim.label }}</td>
+                            <td><a href="{{ url_for('main.reference') }}#dim-{{ dim_key }}" class="text-decoration-none">{{ dim.label }}</a></td>
                             <td>
                                 <div class="progress" style="height: 20px;">
                                     <div class="progress-bar maturity-bg-{{ score or 1 }}" style="width: {{ (score or 0) * 20 }}%">
@@ -44,7 +51,7 @@
                                     </div>
                                 </div>
                             </td>
-                            <td><span class="badge maturity-level-{{ score or 1 }}">{{ ['','Regressive','Repeatable','Consistent','Quantitatively Managed','Optimizing'][score or 0] }}</span></td>
+                            <td><a href="{{ url_for('main.reference') }}" class="text-decoration-none"><span class="badge maturity-level-{{ score or 1 }}">{{ ['','Regressive','Repeatable','Consistent','Quantitatively Managed','Optimizing'][score or 0] }}</span></a></td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -88,7 +95,7 @@
                 <p>{{ rec.description }}</p>
             </div>
             <div class="text-end text-muted small">
-                {{ dimensions[rec.dimension].label }}<br>
+                <a href="{{ url_for('main.reference') }}#dim-{{ rec.dimension }}" class="text-decoration-none">{{ dimensions[rec.dimension].label }}</a><br>
                 Current: {{ rec.current_score }}/5
             </div>
         </div>
@@ -111,7 +118,7 @@
     <div class="accordion-item">
         <h2 class="accordion-header">
             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ dim_key }}">
-                {{ dim.label }} &mdash; {{ assessment.dimension_scores[dim_key] or '-' }}/5
+                <a href="{{ url_for('main.reference') }}#dim-{{ dim_key }}" class="text-decoration-none me-1" onclick="event.stopPropagation()">{{ dim.label }}</a> &mdash; {{ assessment.dimension_scores[dim_key] or '-' }}/5
             </button>
         </h2>
         <div id="collapse-{{ dim_key }}" class="accordion-collapse collapse">

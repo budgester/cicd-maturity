@@ -45,6 +45,7 @@ def sample_assessment(app, db, sample_pipeline):
         security_score=2,
         configuration_management_score=3,
         feedback_loops_score=4,
+        ai_readiness_score=2,
     )
     db.session.add(assessment)
     db.session.commit()

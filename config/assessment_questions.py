@@ -344,4 +344,54 @@ ASSESSMENT_DIMENSIONS = {
             },
         ],
     },
+    "ai_readiness": {
+        "label": "AI Readiness",
+        "description": "How well the codebase supports AI-assisted development, agentic workflows, and whether the code itself appears AI-generated or human-crafted.",
+        "questions": [
+            {
+                "key": "ai_agent_config",
+                "text": "Is the repository configured for AI coding agents?",
+                "guidance": {
+                    1: "No AI tooling configuration present.",
+                    2: "Basic editor AI plugin (e.g. Copilot enabled) but no project-level config.",
+                    3: "Project-level AI config (CLAUDE.md, .cursorrules, or copilot-instructions).",
+                    4: "Detailed AI instructions with codebase conventions, architecture context, and task guidance.",
+                    5: "Comprehensive AI agent setup with memory, hooks, MCP servers, and agentic workflows.",
+                },
+            },
+            {
+                "key": "ai_memory",
+                "text": "Does the project have AI memory or persistent context systems?",
+                "guidance": {
+                    1: "No AI memory or context persistence.",
+                    2: "Basic README or docs that AI can reference.",
+                    3: "Structured project instructions (CLAUDE.md, AGENTS.md) with conventions.",
+                    4: "AI memory system with session persistence and context recall.",
+                    5: "Full AI memory with warm/hot context, cross-session learning, and team knowledge sharing.",
+                },
+            },
+            {
+                "key": "ai_generated",
+                "text": "What proportion of the codebase appears to be AI-generated?",
+                "guidance": {
+                    1: "No evidence of AI-assisted development.",
+                    2: "Occasional AI co-authorship (< 20% of commits).",
+                    3: "Regular AI co-authorship (20-50% of commits).",
+                    4: "Majority AI-assisted (50-80% of commits have AI co-author).",
+                    5: "Primarily AI-generated codebase (> 80% AI co-authored); human role is review and direction.",
+                },
+            },
+            {
+                "key": "ai_tooling",
+                "text": "Are AI/ML libraries and frameworks integrated into the project?",
+                "guidance": {
+                    1: "No AI/ML dependencies.",
+                    2: "Basic AI SDK present (e.g. openai, anthropic client).",
+                    3: "AI framework integration (LangChain, LlamaIndex, Semantic Kernel, etc.).",
+                    4: "AI-powered features with structured prompts, tool use, and agent patterns.",
+                    5: "Full AI platform with MCP servers, agent orchestration, RAG pipelines, or custom models.",
+                },
+            },
+        ],
+    },
 }

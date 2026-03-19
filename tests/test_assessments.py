@@ -24,11 +24,21 @@ def test_create_assessment_via_post(client, sample_pipeline, sample_assessment):
     db.session.commit()
 
     mock_results = {
-        dim: {"score": 3, "evidence": [{"check": "test_check", "found": True, "detail": "test detail"}]}
-        for dim in [
-            "version_control", "build_process", "testing", "deployment",
-            "monitoring", "security", "configuration_management", "feedback_loops",
-        ]
+        "dimensions": {
+            dim: {"score": 3, "evidence": [{"check": "test_check", "found": True, "detail": "test detail"}]}
+            for dim in [
+                "version_control", "build_process", "testing", "deployment",
+                "monitoring", "security", "configuration_management", "feedback_loops",
+                "ai_readiness",
+            ]
+        },
+        "classification": {
+            "primary_type": "web_app",
+            "primary_label": "Web Application",
+            "confidence": 80,
+            "all_types": [{"type": "web_app", "label": "Web Application", "score": 5}],
+            "signals": ["Web framework: flask"],
+        },
     }
 
     with patch("app.services.assessment_service.GitAnalyzer") as MockAnalyzer:

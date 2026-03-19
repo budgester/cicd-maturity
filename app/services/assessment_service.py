@@ -13,7 +13,10 @@ def create_assessment_from_repo(pipeline_id, repo_url, assessed_by=None):
     analyzer = GitAnalyzer(repo_url)
     results = analyzer.analyze()
 
-    dimension_scores = {dim: data["score"] for dim, data in results.items()}
+    dimensions = results["dimensions"]
+    classification = results["classification"]
+
+    dimension_scores = {dim: data["score"] for dim, data in dimensions.items()}
     valid_scores = [s for s in dimension_scores.values() if s]
     overall = round(sum(valid_scores) / len(valid_scores)) if valid_scores else 0
 
@@ -29,11 +32,15 @@ def create_assessment_from_repo(pipeline_id, repo_url, assessed_by=None):
         security_score=dimension_scores.get("security", 0),
         configuration_management_score=dimension_scores.get("configuration_management", 0),
         feedback_loops_score=dimension_scores.get("feedback_loops", 0),
+        ai_readiness_score=dimension_scores.get("ai_readiness", 0),
+        application_type=classification["primary_type"],
+        application_type_label=classification["primary_label"],
+        classification_confidence=classification["confidence"],
     )
     db.session.add(assessment)
     db.session.flush()
 
-    for dim, data in results.items():
+    for dim, data in dimensions.items():
         for ev in data["evidence"]:
             response = DimensionResponse(
                 assessment_id=assessment.id,
@@ -43,6 +50,17 @@ def create_assessment_from_repo(pipeline_id, repo_url, assessed_by=None):
                 notes=ev["detail"],
             )
             db.session.add(response)
+
+    # Store classification signals as evidence
+    for signal in classification.get("signals", []):
+        response = DimensionResponse(
+            assessment_id=assessment.id,
+            dimension="classification",
+            question_key="signal",
+            score=1,
+            notes=signal,
+        )
+        db.session.add(response)
 
     db.session.commit()
     return assessment

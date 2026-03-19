@@ -62,6 +62,11 @@ class MaturityAssessment(db.Model):
     security_score = db.Column(db.Integer)
     configuration_management_score = db.Column(db.Integer)
     feedback_loops_score = db.Column(db.Integer)
+    ai_readiness_score = db.Column(db.Integer)
+
+    application_type = db.Column(db.String(50))
+    application_type_label = db.Column(db.String(100))
+    classification_confidence = db.Column(db.Integer)
 
     notes = db.Column(db.Text)
 
@@ -70,6 +75,7 @@ class MaturityAssessment(db.Model):
     DIMENSIONS = [
         "version_control", "build_process", "testing", "deployment",
         "monitoring", "security", "configuration_management", "feedback_loops",
+        "ai_readiness",
     ]
 
     @property

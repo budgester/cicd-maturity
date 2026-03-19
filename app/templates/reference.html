@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Maturity Reference - Pipeline Maturity{% endblock %}
+
+{% block content %}
+<h1>Maturity Model Reference</h1>
+<p class="lead">Based on <em>Continuous Delivery</em> (Farley &amp; Humble) and the DORA metrics framework.</p>
+
+<h2>Maturity Levels</h2>
+<table class="table">
+    <thead>
+        <tr><th style="width: 80px;">Level</th><th style="width: 200px;">Name</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><span class="badge maturity-level-1 fs-6">1</span></td>
+            <td>Regressive</td>
+            <td>Manual, ad-hoc processes. Little or no automation. Tribal knowledge dominates.</td>
+        </tr>
+        <tr>
+            <td><span class="badge maturity-level-2 fs-6">2</span></td>
+            <td>Repeatable</td>
+            <td>Some automation and documented processes. Key steps are scripted but gaps remain.</td>
+        </tr>
+        <tr>
+            <td><span class="badge maturity-level-3 fs-6">3</span></td>
+            <td>Consistent</td>
+            <td>Standardised automation across the team. CI/CD pipeline covers build, test, and deploy.</td>
+        </tr>
+        <tr>
+            <td><span class="badge maturity-level-4 fs-6">4</span></td>
+            <td>Quantitatively Managed</td>
+            <td>Metrics-driven. DORA metrics tracked. Decisions based on data rather than intuition.</td>
+        </tr>
+        <tr>
+            <td><span class="badge maturity-level-5 fs-6">5</span></td>
+            <td>Optimizing</td>
+            <td>Continuous improvement and experimentation. Elite DORA performance. Self-healing systems.</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2 class="mt-5">Assessment Dimensions</h2>
+<p>Each repository is assessed across 8 dimensions. The descriptions below show what each maturity level looks like for every aspect within a dimension.</p>
+
+{% for dim_key, dim in dimensions.items() %}
+<div class="card mb-4" id="dim-{{ dim_key }}">
+    <div class="card-header">
+        <h3 class="mb-0">{{ dim.label }}</h3>
+    </div>
+    <div class="card-body">
+        <p class="text-muted">{{ dim.description }}</p>
+
+        {% for q in dim.questions %}
+        <h5 class="mt-3">{{ q.text }}</h5>
+        <table class="table table-sm table-bordered">
+            <thead>
+                <tr>
+                    <th style="width: 60px;">Level</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for level in range(1, 6) %}
+                <tr>
+                    <td><span class="badge maturity-level-{{ level }}">{{ level }}</span></td>
+                    <td>{{ q.guidance[level] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+<h2 class="mt-5" id="evidence">What Gets Analysed</h2>
+<p>The automated assessment clones the repository and looks for the following evidence:</p>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header"><strong>Version Control</strong></div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>.gitignore and README files</li>
+                    <li>CODEOWNERS for code ownership</li>
+                    <li>Infrastructure-as-code files (Terraform, Ansible, etc.)</li>
+                    <li>Commit message quality and conventions</li>
+                    <li>Branch count and discipline</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header"><strong>Build Process</strong></div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>CI configs (GitHub Actions, Jenkins, GitLab CI, etc.)</li>
+                    <li>Build tools (Make, Gradle, etc.)</li>
+                    <li>Build caching and parallelisation</li>
+                    <li>Dockerfiles for containerised builds</li>
+                    <li>Lock files for dependency pinning</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header"><strong>Testing</strong></div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>Test directories and test files</li>
+                    <li>Test frameworks in dependencies</li>
+                    <li>Tests executed in CI</li>
+                    <li>Coverage configuration and reporting</li>
+                    <li>E2E testing (Cypress, Playwright, etc.)</li>
+                    <li>Performance testing tools</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header"><strong>Deployment</strong></div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>Dockerfiles and Docker Compose</li>
+                    <li>Kubernetes manifests, Helm charts</li>
+                    <li>Platform configs (Heroku, Serverless, etc.)</li>
+                    <li>CD steps in CI pipeline</li>
+                    <li>Deployment strategies (canary, blue-green)</li>
+                    <li>Feature flag usage</li>
+                    <li>Release tags</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card mb-3">
+            <div class="card-header"><strong>Monitoring &amp; Observability</strong></div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>Logging libraries (structlog, winston, etc.)</li>
+                    <li>Metrics libraries (Prometheus, Datadog, etc.)</li>
+                    <li>Tracing libraries (OpenTelemetry, Jaeger, etc.)</li>
+                    <li>Monitoring config files</li>
+                    <li>Alerting configuration</li>
+                    <li>Health check endpoints in code</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header"><strong>Security</strong></div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>SECURITY.md policy</li>
+                    <li>Dependency scanning (Dependabot, Renovate, Snyk)</li>
+                    <li>SAST tool configs (Semgrep, SonarQube, etc.)</li>
+                    <li>Security scanning in CI</li>
+                    <li>Pre-commit hooks with secret detection</li>
+                    <li>Sensitive files excluded in .gitignore</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header"><strong>Configuration Management</strong></div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>.env.example / environment templates</li>
+                    <li>Config directories</li>
+                    <li>Docker for environment parity</li>
+                    <li>Dev containers</li>
+                    <li>Environment-specific config files</li>
+                    <li>GitOps tooling (ArgoCD, Flux)</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header"><strong>Feedback Loops (DORA)</strong></div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>Release tag frequency</li>
+                    <li>Commit frequency</li>
+                    <li>Full CI/CD pipeline (build + test + deploy)</li>
+                    <li>Rollback capability</li>
+                </ul>
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header"><strong>AI Readiness</strong></div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li>CLAUDE.md, .cursorrules, copilot-instructions</li>
+                    <li>.claude/ directory (memory, settings, hooks)</li>
+                    <li>AGENTS.md for multi-agent coordination</li>
+                    <li>MCP server configuration</li>
+                    <li>AI co-authorship percentage in git history</li>
+                    <li>AI/ML SDKs and frameworks in dependencies</li>
+                    <li>Agent and tool-use patterns in code</li>
+                    <li>CodeRabbit, Aider, and other AI tool configs</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -47,6 +47,21 @@ def test_repo(tmp_path):
     # Dockerfile
     (repo / "Dockerfile").write_text("FROM python:3.12\nCOPY . /app\n")
 
+    # AI readiness files
+    (repo / "CLAUDE.md").write_text(
+        "# Project\n\nThis is a Python Flask project using SQLAlchemy ORM.\n\n"
+        "## Tech Stack\n\n- Python 3.12 with Flask\n- SQLAlchemy via Flask-SQLAlchemy\n"
+        "- Flask-Migrate for database migrations\n- pytest for testing\n\n"
+        "## Conventions\n\n- Use snake_case for everything (files, functions, variables)\n"
+        "- Routes go in app/routes/ as Flask Blueprints\n"
+        "- Business logic goes in app/services/, not in routes\n"
+        "- Models go in app/models/\n- Tests mirror the app/ structure under tests/\n\n"
+        "## Commands\n\n- pytest to run tests\n- python run.py to start dev server\n"
+        "- flask db upgrade to apply migrations\n- flask db migrate to generate migrations\n\n"
+        "## Architecture\n\nUse the app factory pattern. Config via environment variables.\n"
+        "Keep routes thin, put logic in services. Use dependency injection.\n"
+    )
+
     # Dependabot
     (repo / ".github" / "dependabot.yml").write_text(
         "version: 2\nupdates:\n  - package-ecosystem: pip\n    directory: /\n    schedule:\n      interval: weekly\n"
@@ -68,7 +83,7 @@ def test_repo(tmp_path):
     subprocess.run(["git", "init", str(repo)], capture_output=True, check=True, env=env)
     subprocess.run(["git", "add", "."], cwd=repo, capture_output=True, check=True, env=env)
     subprocess.run(
-        ["git", "commit", "-m", "feat: initial setup with CI and tests"],
+        ["git", "commit", "-m", "feat: initial setup with CI and tests\n\nCo-Authored-By: Claude <noreply@anthropic.com>"],
         cwd=repo, capture_output=True, check=True, env=env,
     )
     subprocess.run(
@@ -81,22 +96,29 @@ def test_repo(tmp_path):
 def test_analyzer_returns_all_dimensions(test_repo):
     analyzer = GitAnalyzer(test_repo)
     results = analyzer.analyze()
+    dims = results["dimensions"]
 
     expected_dims = [
         "version_control", "build_process", "testing", "deployment",
         "monitoring", "security", "configuration_management", "feedback_loops",
+        "ai_readiness",
     ]
     for dim in expected_dims:
-        assert dim in results, f"Missing dimension: {dim}"
-        assert "score" in results[dim]
-        assert "evidence" in results[dim]
-        assert 1 <= results[dim]["score"] <= 5
+        assert dim in dims, f"Missing dimension: {dim}"
+        assert "score" in dims[dim]
+        assert "evidence" in dims[dim]
+        assert 1 <= dims[dim]["score"] <= 5
+
+    # Classification
+    assert "classification" in results
+    assert "primary_type" in results["classification"]
+    assert "signals" in results["classification"]
 
 
 def test_detects_version_control_evidence(test_repo):
     analyzer = GitAnalyzer(test_repo)
     results = analyzer.analyze()
-    vc = results["version_control"]
+    vc = results["dimensions"]["version_control"]
 
     checks = {e["check"]: e for e in vc["evidence"]}
     assert checks["gitignore"]["found"]
@@ -107,7 +129,7 @@ def test_detects_version_control_evidence(test_repo):
 def test_detects_build_process_evidence(test_repo):
     analyzer = GitAnalyzer(test_repo)
     results = analyzer.analyze()
-    bp = results["build_process"]
+    bp = results["dimensions"]["build_process"]
 
     checks = {e["check"]: e for e in bp["evidence"]}
     assert any(e["found"] for e in bp["evidence"] if e["check"] == "ci_config")
@@ -118,7 +140,7 @@ def test_detects_build_process_evidence(test_repo):
 def test_detects_testing_evidence(test_repo):
     analyzer = GitAnalyzer(test_repo)
     results = analyzer.analyze()
-    t = results["testing"]
+    t = results["dimensions"]["testing"]
 
     checks = {e["check"]: e for e in t["evidence"]}
     assert checks["test_directory"]["found"]
@@ -128,7 +150,7 @@ def test_detects_testing_evidence(test_repo):
 def test_detects_deployment_evidence(test_repo):
     analyzer = GitAnalyzer(test_repo)
     results = analyzer.analyze()
-    d = results["deployment"]
+    d = results["dimensions"]["deployment"]
 
     checks = {e["check"]: e for e in d["evidence"]}
     assert checks["dockerfile"]["found"]
@@ -138,7 +160,7 @@ def test_detects_deployment_evidence(test_repo):
 def test_detects_monitoring_evidence(test_repo):
     analyzer = GitAnalyzer(test_repo)
     results = analyzer.analyze()
-    m = results["monitoring"]
+    m = results["dimensions"]["monitoring"]
 
     # structlog and prometheus-client in deps
     checks = {e["check"]: e for e in m["evidence"]}
@@ -149,7 +171,7 @@ def test_detects_monitoring_evidence(test_repo):
 def test_detects_security_evidence(test_repo):
     analyzer = GitAnalyzer(test_repo)
     results = analyzer.analyze()
-    s = results["security"]
+    s = results["dimensions"]["security"]
 
     checks = {e["check"]: e for e in s["evidence"]}
     assert checks["dependency_scanning"]["found"]
@@ -161,7 +183,7 @@ def test_detects_security_evidence(test_repo):
 def test_detects_config_management_evidence(test_repo):
     analyzer = GitAnalyzer(test_repo)
     results = analyzer.analyze()
-    cm = results["configuration_management"]
+    cm = results["dimensions"]["configuration_management"]
 
     checks = {e["check"]: e for e in cm["evidence"]}
     assert checks["env_template"]["found"]
@@ -172,10 +194,34 @@ def test_detects_config_management_evidence(test_repo):
 def test_detects_feedback_loops_evidence(test_repo):
     analyzer = GitAnalyzer(test_repo)
     results = analyzer.analyze()
-    fl = results["feedback_loops"]
+    fl = results["dimensions"]["feedback_loops"]
 
     assert fl["score"] >= 1
     assert len(fl["evidence"]) > 0
+
+
+def test_detects_ai_readiness_evidence(test_repo):
+    analyzer = GitAnalyzer(test_repo)
+    results = analyzer.analyze()
+    ai = results["dimensions"]["ai_readiness"]
+
+    checks = {e["check"]: e for e in ai["evidence"]}
+    assert checks["claude_md"]["found"]
+    assert checks["claude_md_detailed"]["found"]  # >500 chars
+    assert checks["ai_coauthored"]["found"]
+    assert ai["score"] >= 3
+
+
+def test_classifies_web_application(test_repo):
+    analyzer = GitAnalyzer(test_repo)
+    results = analyzer.analyze()
+    classification = results["classification"]
+
+    assert classification["primary_type"] == "web_app"
+    assert classification["primary_label"] == "Web Application"
+    assert classification["confidence"] > 0
+    assert len(classification["signals"]) > 0
+    assert any("flask" in s.lower() for s in classification["signals"])
 
 
 def test_invalid_repo_raises():

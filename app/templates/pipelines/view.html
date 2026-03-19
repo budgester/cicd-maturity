@@ -15,6 +15,9 @@
     </div>
     <div class="col-md-6 text-end">
         {% if latest_assessment %}
+        {% if latest_assessment.application_type %}
+        <span class="badge bg-dark fs-6">{{ latest_assessment.application_type_label }}</span>
+        {% endif %}
         <span class="badge maturity-badge maturity-level-{{ latest_assessment.overall_score }} fs-5">
             Level {{ latest_assessment.overall_score }}: {{ latest_assessment.maturity_label }}
         </span>
@@ -49,6 +52,7 @@
                     <div class="card-body py-2">
                         <span class="badge bg-{{ 'danger' if rec.priority == 'high' else 'warning' if rec.priority == 'medium' else 'secondary' }}">{{ rec.priority }}</span>
                         <strong>{{ rec.title }}</strong>
+                        <a href="{{ url_for('main.reference') }}#dim-{{ rec.dimension }}" class="small text-decoration-none">({{ rec.dimension | replace('_', ' ') }})</a>
                         <p class="small text-muted mb-0">{{ rec.description }}</p>
                     </div>
                 </div>
@@ -149,7 +153,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var labels = {{ latest_assessment.DIMENSIONS | tojson }};
-    var labelNames = ['Version Control', 'Build Process', 'Testing', 'Deployment', 'Monitoring', 'Security', 'Config Management', 'Feedback Loops'];
+    var labelNames = ['Version Control', 'Build Process', 'Testing', 'Deployment', 'Monitoring', 'Security', 'Config Management', 'Feedback Loops', 'AI Readiness'];
     var scores = labels.map(function(k) { return {{ latest_assessment.dimension_scores | tojson }}[k] || 0; });
     createRadarChart('radarChart', labelNames, scores, null);
 });

@@ -321,6 +321,52 @@ RECOMMENDATIONS = {
             "reference": "Continuous Delivery, Ch. 11 - Managing Infrastructure",
         },
     },
+    "ai_readiness": {
+        2: {
+            "priority": "medium",
+            "title": "Add AI coding agent configuration",
+            "description": "Create project-level instructions so AI tools understand your codebase.",
+            "actions": [
+                "Create a CLAUDE.md with project conventions, tech stack, and common commands",
+                "Add .cursorrules or .github/copilot-instructions.md if using those tools",
+                "Document architecture decisions that AI agents should follow",
+            ],
+            "reference": "Claude Code documentation - CLAUDE.md",
+        },
+        3: {
+            "priority": "medium",
+            "title": "Enrich AI context with detailed instructions",
+            "description": "Give AI agents deep context about your codebase patterns and conventions.",
+            "actions": [
+                "Expand CLAUDE.md with coding conventions, file structure, and test patterns",
+                "Add examples of good patterns for the AI to follow",
+                "Document what AI agents should and should not change",
+            ],
+            "reference": "Claude Code documentation - Project instructions",
+        },
+        4: {
+            "priority": "low",
+            "title": "Enable AI memory and persistent context",
+            "description": "Set up memory systems so AI retains learning across sessions.",
+            "actions": [
+                "Configure .claude/ directory with settings and memory files",
+                "Set up Claude Code hooks for automated workflows",
+                "Create AGENTS.md for multi-agent coordination if applicable",
+            ],
+            "reference": "Claude Code documentation - Memory and hooks",
+        },
+        5: {
+            "priority": "low",
+            "title": "Full agentic workflow with MCP and orchestration",
+            "description": "Enable MCP servers, agent orchestration, and team-wide AI knowledge sharing.",
+            "actions": [
+                "Configure MCP servers for external tool access",
+                "Set up cross-session AI memory with warm/hot context",
+                "Implement agentic CI/CD workflows (AI-assisted reviews, automated fixes)",
+            ],
+            "reference": "Claude Code documentation - MCP servers",
+        },
+    },
     "feedback_loops": {
         2: {
             "priority": "high",
