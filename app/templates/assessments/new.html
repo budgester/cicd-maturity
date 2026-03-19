@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Assess - {{ pipeline.name }}{% endblock %}
+
+{% block content %}
+<h1>Assess: {{ pipeline.name }}</h1>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <p>This will clone and analyse the repository to produce an evidence-based maturity assessment across 8 dimensions.</p>
+        <dl class="mb-3">
+            <dt>Repository</dt>
+            <dd><code>{{ pipeline.repository_url }}</code></dd>
+        </dl>
+
+        <form method="POST" action="{{ url_for('assessments.create', pipeline_id=pipeline.id) }}" id="assessForm">
+            <div class="mb-3" style="max-width: 400px;">
+                <label for="assessed_by" class="form-label">Triggered by (optional)</label>
+                <input type="text" class="form-control" id="assessed_by" name="assessed_by" placeholder="Your name">
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg" id="analyzeBtn">Analyse Repository</button>
+        </form>
+    </div>
+</div>
+
+<div class="text-muted">
+    <h5>What gets analysed</h5>
+    <ul>
+        <li><strong>Version Control</strong> - commit quality, branching, IaC files</li>
+        <li><strong>Build Process</strong> - CI config, build tools, caching, containerisation</li>
+        <li><strong>Testing</strong> - test suites, frameworks, coverage, E2E, performance</li>
+        <li><strong>Deployment</strong> - CD pipelines, containers, k8s, release tags</li>
+        <li><strong>Monitoring</strong> - logging, metrics, tracing, alerting libraries</li>
+        <li><strong>Security</strong> - SAST, dependency scanning, secrets management</li>
+        <li><strong>Configuration Management</strong> - env parity, config-as-code, GitOps</li>
+        <li><strong>Feedback Loops (DORA)</strong> - release frequency, pipeline completeness</li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('assessForm').addEventListener('submit', function() {
+    var btn = document.getElementById('analyzeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analysing repository...';
+});
+</script>
+{% endblock %}

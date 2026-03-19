@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Pipelines - Pipeline Maturity{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Pipelines</h1>
+    <a href="{{ url_for('pipelines.new_pipeline') }}" class="btn btn-primary">Add Pipeline</a>
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Team</th>
+            <th>Stages</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for pipeline in pipelines %}
+        <tr>
+            <td>{{ pipeline.name }}</td>
+            <td>{{ pipeline.team or '-' }}</td>
+            <td>{{ pipeline.stages | length }}</td>
+            <td>
+                <a href="{{ url_for('pipelines.view_pipeline', pipeline_id=pipeline.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+                <form method="POST" action="{{ url_for('pipelines.remove_pipeline', pipeline_id=pipeline.id) }}" class="d-inline" onsubmit="return confirm('Delete this pipeline?')">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="text-center">No pipelines found.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

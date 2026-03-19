@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Assessment History - {{ pipeline.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Assessment History: {{ pipeline.name }}</h1>
+    <a href="{{ url_for('assessments.new_assessment', pipeline_id=pipeline.id) }}" class="btn btn-primary">New Assessment</a>
+</div>
+
+{% if assessments %}
+<div class="card mb-4">
+    <div class="card-header"><h5 class="mb-0">Maturity Trend</h5></div>
+    <div class="card-body">
+        <canvas id="trendChart" height="200"></canvas>
+    </div>
+</div>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Assessed By</th>
+            <th>Overall</th>
+            <th>Level</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for a in assessments | reverse %}
+        <tr>
+            <td>{{ a.assessed_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>{{ a.assessed_by or '-' }}</td>
+            <td><strong>{{ a.overall_score }}/5</strong></td>
+            <td><span class="badge maturity-level-{{ a.overall_score }}">{{ a.maturity_label }}</span></td>
+            <td>
+                <a href="{{ url_for('assessments.view_assessment', pipeline_id=pipeline.id, assessment_id=a.id) }}" class="btn btn-sm btn-outline-primary">View</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<div class="alert alert-info">
+    No assessments yet. <a href="{{ url_for('assessments.new_assessment', pipeline_id=pipeline.id) }}">Run your first assessment</a>.
+</div>
+{% endif %}
+
+<a href="{{ url_for('pipelines.view_pipeline', pipeline_id=pipeline.id) }}" class="btn btn-outline-secondary">Back to Pipeline</a>
+{% endblock %}
+
+{% block scripts %}
+{% if assessments %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var dates = [{% for a in assessments %}"{{ a.assessed_at.strftime('%Y-%m-%d') }}"{% if not loop.last %}, {% endif %}{% endfor %}];
+    var overallScores = {{ assessments | map(attribute='overall_score') | list | tojson }};
+    var dimensionData = {};
+    var dimensions = {{ assessments[0].DIMENSIONS | tojson if assessments else '[]' }};
+    dimensions.forEach(function(dim) {
+        dimensionData[dim] = {{ assessments | map(attribute='dimension_scores') | list | tojson }}.map(function(s) { return s[dim] || 0; });
+    });
+    createTrendChart('trendChart', dates, overallScores, dimensionData);
+});
+</script>
+{% endif %}
+{% endblock %}

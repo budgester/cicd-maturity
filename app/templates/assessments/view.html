@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Assessment Results - {{ pipeline.name }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1>Assessment Results</h1>
+        <p class="text-muted">{{ pipeline.name }} &mdash; {{ assessment.assessed_at.strftime('%Y-%m-%d %H:%M') }}
+            {% if assessment.assessed_by %} by {{ assessment.assessed_by }}{% endif %}
+        </p>
+    </div>
+    <div class="text-end">
+        <span class="badge maturity-badge maturity-level-{{ assessment.overall_score }} fs-4">
+            Level {{ assessment.overall_score }}: {{ assessment.maturity_label }}
+        </span>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Maturity Radar</h5></div>
+            <div class="card-body">
+                <canvas id="radarChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Dimension Scores</h5></div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead><tr><th>Dimension</th><th>Score</th><th>Level</th></tr></thead>
+                    <tbody>
+                        {% for dim_key, dim in dimensions.items() %}
+                        {% set score = assessment.dimension_scores[dim_key] %}
+                        <tr>
+                            <td>{{ dim.label }}</td>
+                            <td>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar maturity-bg-{{ score or 1 }}" style="width: {{ (score or 0) * 20 }}%">
+                                        {{ score or '-' }}/5
+                                    </div>
+                                </div>
+                            </td>
+                            <td><span class="badge maturity-level-{{ score or 1 }}">{{ ['','Regressive','Repeatable','Consistent','Quantitatively Managed','Optimizing'][score or 0] }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if quick_wins %}
+<div class="card border-info mb-4">
+    <div class="card-header bg-info text-white"><h5 class="mb-0">Quick Wins</h5></div>
+    <div class="card-body">
+        <div class="row">
+            {% for rec in quick_wins %}
+            <div class="col-md-4">
+                <div class="card rec-card rec-{{ rec.priority }} h-100">
+                    <div class="card-body">
+                        <span class="badge bg-{{ 'danger' if rec.priority == 'high' else 'warning' if rec.priority == 'medium' else 'secondary' }} mb-2">{{ rec.priority }}</span>
+                        <h6>{{ rec.title }}</h6>
+                        <p class="small text-muted">{{ rec.description }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if recommendations %}
+<h2>All Recommendations</h2>
+{% for rec in recommendations %}
+<div class="card rec-card rec-{{ rec.priority }} mb-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+            <div>
+                <span class="badge bg-{{ 'danger' if rec.priority == 'high' else 'warning' if rec.priority == 'medium' else 'secondary' }}">{{ rec.priority }}</span>
+                <span class="badge maturity-level-{{ rec.target_level }}">Target: Level {{ rec.target_level }}</span>
+                <h5 class="mt-2">{{ rec.title }}</h5>
+                <p>{{ rec.description }}</p>
+            </div>
+            <div class="text-end text-muted small">
+                {{ dimensions[rec.dimension].label }}<br>
+                Current: {{ rec.current_score }}/5
+            </div>
+        </div>
+        <h6>Actions:</h6>
+        <ul>
+            {% for action in rec.actions %}
+            <li>{{ action }}</li>
+            {% endfor %}
+        </ul>
+        <p class="small text-muted mb-0">Reference: {{ rec.reference }}</p>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<h2 class="mt-4">Evidence</h2>
+{% for dim_key, dim in dimensions.items() %}
+{% set dim_responses = assessment.responses | selectattr('dimension', 'equalto', dim_key) | list %}
+<div class="accordion mb-2" id="acc-{{ dim_key }}">
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ dim_key }}">
+                {{ dim.label }} &mdash; {{ assessment.dimension_scores[dim_key] or '-' }}/5
+            </button>
+        </h2>
+        <div id="collapse-{{ dim_key }}" class="accordion-collapse collapse">
+            <div class="accordion-body">
+                {% for resp in dim_responses %}
+                <div class="mb-1">
+                    {% if resp.score == 1 %}
+                    <span class="badge bg-success">found</span>
+                    {% else %}
+                    <span class="badge bg-secondary">not found</span>
+                    {% endif %}
+                    <span class="text-muted small">{{ resp.question_key }}</span>
+                    &mdash; {{ resp.notes }}
+                </div>
+                {% endfor %}
+                {% if not dim_responses %}
+                <p class="text-muted">No evidence recorded.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<div class="mt-4">
+    <a href="{{ url_for('assessments.export_pdf', pipeline_id=pipeline.id, assessment_id=assessment.id) }}" class="btn btn-outline-secondary">Export PDF</a>
+    <a href="{{ url_for('assessments.history', pipeline_id=pipeline.id) }}" class="btn btn-outline-primary">View History</a>
+    <a href="{{ url_for('assessments.new_assessment', pipeline_id=pipeline.id) }}" class="btn btn-primary">Re-assess</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var labels = {{ dimensions.keys() | list | tojson }};
+    var labelNames = {{ dimensions.values() | map(attribute='label') | list | tojson }};
+    var scores = labels.map(function(k) { return {{ assessment.dimension_scores | tojson }}[k] || 0; });
+    {% if previous %}
+    var prevScores = labels.map(function(k) { return {{ previous.dimension_scores | tojson }}[k] || 0; });
+    {% else %}
+    var prevScores = null;
+    {% endif %}
+    createRadarChart('radarChart', labelNames, scores, prevScores);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,51 @@
+/* Pipeline Maturity custom styles */
+
+body {
+    background-color: #f8f9fa;
+}
+
+.card {
+    transition: box-shadow 0.2s;
+}
+
+.card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Maturity level colours */
+.maturity-level-1, .maturity-bg-1 { background-color: #dc3545; color: #fff; }
+.maturity-level-2, .maturity-bg-2 { background-color: #fd7e14; color: #fff; }
+.maturity-level-3, .maturity-bg-3 { background-color: #ffc107; color: #212529; }
+.maturity-level-4, .maturity-bg-4 { background-color: #0d6efd; color: #fff; }
+.maturity-level-5, .maturity-bg-5 { background-color: #198754; color: #fff; }
+
+.maturity-badge {
+    padding: 0.5em 1em;
+    border-radius: 0.5rem;
+}
+
+/* Wizard step indicators */
+.step-number {
+    display: inline-block;
+    width: 1.5em;
+    height: 1.5em;
+    line-height: 1.5em;
+    text-align: center;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.2);
+    margin-right: 0.3em;
+    font-size: 0.85em;
+}
+
+.nav-pills .nav-link.active .step-number {
+    background-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Recommendation card styles */
+.rec-card {
+    border-left: 4px solid;
+}
+
+.rec-high { border-left-color: #dc3545; }
+.rec-medium { border-left-color: #ffc107; }
+.rec-low { border-left-color: #6c757d; }

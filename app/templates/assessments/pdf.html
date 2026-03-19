@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #212529; margin: 20px; }
+    h1 { font-size: 22px; margin-bottom: 5px; }
+    h2 { font-size: 16px; margin-top: 20px; border-bottom: 2px solid #dee2e6; padding-bottom: 4px; }
+    h3 { font-size: 13px; margin-top: 12px; }
+    .meta { color: #6c757d; font-size: 10px; margin-bottom: 15px; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 10px; font-weight: bold; color: #fff; }
+    .level-1 { background-color: #dc3545; }
+    .level-2 { background-color: #fd7e14; }
+    .level-3 { background-color: #ffc107; color: #212529; }
+    .level-4 { background-color: #0d6efd; }
+    .level-5 { background-color: #198754; }
+    .overall-badge { font-size: 16px; padding: 6px 16px; border-radius: 6px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 12px; }
+    th, td { border: 1px solid #dee2e6; padding: 5px 8px; text-align: left; font-size: 10px; }
+    th { background-color: #f8f9fa; font-weight: bold; }
+    .bar-cell { width: 120px; }
+    .bar { height: 14px; border-radius: 3px; display: inline-block; }
+    .bar-1 { background-color: #dc3545; }
+    .bar-2 { background-color: #fd7e14; }
+    .bar-3 { background-color: #ffc107; }
+    .bar-4 { background-color: #0d6efd; }
+    .bar-5 { background-color: #198754; }
+    .rec-card { border-left: 4px solid; padding: 8px 12px; margin-bottom: 8px; background-color: #f8f9fa; }
+    .rec-high { border-left-color: #dc3545; }
+    .rec-medium { border-left-color: #ffc107; }
+    .rec-low { border-left-color: #6c757d; }
+    .evidence-found { color: #198754; font-weight: bold; }
+    .evidence-missing { color: #6c757d; }
+    .priority-high { background-color: #dc3545; }
+    .priority-medium { background-color: #ffc107; color: #212529; }
+    .priority-low { background-color: #6c757d; }
+    ul { margin: 4px 0; padding-left: 20px; }
+    li { margin-bottom: 2px; }
+    .ref { color: #6c757d; font-size: 9px; font-style: italic; }
+    .page-break { page-break-before: always; }
+    @page { margin: 2cm; }
+</style>
+</head>
+<body>
+
+<h1>Pipeline Maturity Assessment</h1>
+<p class="meta">
+    {{ pipeline.name }} ({{ pipeline.team }}) &mdash; {{ pipeline.repository_url }}<br>
+    Assessed: {{ assessment.assessed_at.strftime('%Y-%m-%d %H:%M UTC') }}
+    {% if assessment.assessed_by %} by {{ assessment.assessed_by }}{% endif %}
+</p>
+
+<table>
+    <tr>
+        <td style="width: 50%; vertical-align: top;">
+            <strong>Overall Score</strong><br><br>
+            <span class="badge overall-badge level-{{ assessment.overall_score }}">
+                Level {{ assessment.overall_score }}: {{ assessment.maturity_label }}
+            </span>
+        </td>
+        <td style="width: 50%; vertical-align: top; font-size: 9px;">
+            <strong>Maturity Levels</strong><br>
+            <span class="badge level-1">1</span> Regressive &nbsp;
+            <span class="badge level-2">2</span> Repeatable &nbsp;
+            <span class="badge level-3">3</span> Consistent<br>
+            <span class="badge level-4">4</span> Quantitatively Managed &nbsp;
+            <span class="badge level-5">5</span> Optimizing
+        </td>
+    </tr>
+</table>
+
+<h2>Dimension Scores</h2>
+<table>
+    <thead>
+        <tr><th>Dimension</th><th>Score</th><th class="bar-cell">Level</th><th>Maturity</th></tr>
+    </thead>
+    <tbody>
+        {% set level_names = ['','Regressive','Repeatable','Consistent','Quantitatively Managed','Optimizing'] %}
+        {% for dim_key, dim in dimensions.items() %}
+        {% set score = assessment.dimension_scores[dim_key] or 0 %}
+        <tr>
+            <td>{{ dim.label }}</td>
+            <td style="text-align: center;"><strong>{{ score }}/5</strong></td>
+            <td class="bar-cell"><span class="bar bar-{{ score or 1 }}" style="width: {{ score * 20 }}%;"> </span></td>
+            <td><span class="badge level-{{ score or 1 }}">{{ level_names[score] }}</span></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if quick_wins %}
+<h2>Quick Wins</h2>
+{% for rec in quick_wins %}
+<div class="rec-card rec-{{ rec.priority }}">
+    <span class="badge priority-{{ rec.priority }}">{{ rec.priority }}</span>
+    <strong>{{ rec.title }}</strong> ({{ dimensions[rec.dimension].label }} &mdash; current: {{ rec.current_score }}/5)<br>
+    {{ rec.description }}
+</div>
+{% endfor %}
+{% endif %}
+
+{% if recommendations %}
+<h2 class="page-break">Recommendations</h2>
+{% for rec in recommendations %}
+<div class="rec-card rec-{{ rec.priority }}">
+    <span class="badge priority-{{ rec.priority }}">{{ rec.priority }}</span>
+    <span class="badge level-{{ rec.target_level }}">Target: Level {{ rec.target_level }}</span>
+    <strong>{{ rec.title }}</strong>
+    <span style="color: #6c757d;"> &mdash; {{ dimensions[rec.dimension].label }} ({{ rec.current_score }}/5)</span>
+    <br>{{ rec.description }}
+    <ul>
+        {% for action in rec.actions %}
+        <li>{{ action }}</li>
+        {% endfor %}
+    </ul>
+    <span class="ref">{{ rec.reference }}</span>
+</div>
+{% endfor %}
+{% endif %}
+
+<h2 class="page-break">Evidence</h2>
+{% for dim_key, dim in dimensions.items() %}
+{% set dim_responses = assessment.responses | selectattr('dimension', 'equalto', dim_key) | list %}
+<h3>{{ dim.label }} &mdash; {{ assessment.dimension_scores[dim_key] or '-' }}/5</h3>
+<table>
+    <thead><tr><th style="width: 60px;">Status</th><th style="width: 120px;">Check</th><th>Detail</th></tr></thead>
+    <tbody>
+        {% for resp in dim_responses %}
+        <tr>
+            <td>{% if resp.score == 1 %}<span class="evidence-found">FOUND</span>{% else %}<span class="evidence-missing">--</span>{% endif %}</td>
+            <td>{{ resp.question_key }}</td>
+            <td>{{ resp.notes }}</td>
+        </tr>
+        {% endfor %}
+        {% if not dim_responses %}
+        <tr><td colspan="3" style="color: #6c757d;">No evidence recorded.</td></tr>
+        {% endif %}
+    </tbody>
+</table>
+{% endfor %}
+
+<p class="meta" style="margin-top: 30px; border-top: 1px solid #dee2e6; padding-top: 8px;">
+    Generated by Pipeline Maturity Assessment Tool &mdash; based on Continuous Delivery (Farley &amp; Humble) and DORA metrics framework.
+</p>
+
+</body>
+</html>

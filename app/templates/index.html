@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Pipeline Maturity Dashboard</h1>
+<p class="lead">Assess and track the maturity of your software development pipelines.</p>
+
+{% if pipelines %}
+<div class="row">
+    {% for pipeline in pipelines %}
+    <div class="col-md-4 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{{ pipeline.name }}</h5>
+                <p class="card-text">{{ pipeline.description or 'No description' }}</p>
+                <p class="text-muted">Team: {{ pipeline.team or 'Unassigned' }}</p>
+                {% if pipeline.assessments %}
+                {% set latest = pipeline.assessments | sort(attribute='assessed_at') | last %}
+                <span class="badge maturity-badge maturity-level-{{ latest.overall_score }}">
+                    L{{ latest.overall_score }}: {{ latest.maturity_label }}
+                </span>
+                {% endif %}
+                <a href="{{ url_for('pipelines.view_pipeline', pipeline_id=pipeline.id) }}" class="btn btn-primary btn-sm">View</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="alert alert-info">
+    No pipelines yet. <a href="{{ url_for('pipelines.new_pipeline') }}">Add your first pipeline</a>.
+</div>
+{% endif %}
+{% endblock %}

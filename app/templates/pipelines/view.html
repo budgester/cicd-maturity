@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}{{ pipeline.name }} - Pipeline Maturity{% endblock %}
+
+{% block content %}
+<h1>{{ pipeline.name }}</h1>
+<p>{{ pipeline.description or '' }}</p>
+
+<div class="row mb-4">
+    <div class="col-md-6">
+        <dl>
+            <dt>Team</dt><dd>{{ pipeline.team or 'Unassigned' }}</dd>
+            <dt>Repository</dt><dd>{{ pipeline.repository_url or 'Not set' }}</dd>
+        </dl>
+    </div>
+    <div class="col-md-6 text-end">
+        {% if latest_assessment %}
+        <span class="badge maturity-badge maturity-level-{{ latest_assessment.overall_score }} fs-5">
+            Level {{ latest_assessment.overall_score }}: {{ latest_assessment.maturity_label }}
+        </span>
+        {% endif %}
+        <div class="mt-2">
+            <a href="{{ url_for('assessments.new_assessment', pipeline_id=pipeline.id) }}" class="btn btn-primary">New Assessment</a>
+            <a href="{{ url_for('assessments.history', pipeline_id=pipeline.id) }}" class="btn btn-outline-primary">History</a>
+            <form method="POST" action="{{ url_for('pipelines.remove_pipeline', pipeline_id=pipeline.id) }}" class="d-inline" onsubmit="return confirm('Delete this pipeline and all its assessments?')">
+                <button type="submit" class="btn btn-outline-danger">Delete Pipeline</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% if latest_assessment %}
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><h5 class="mb-0">Latest Maturity Radar</h5></div>
+            <div class="card-body">
+                <canvas id="radarChart" height="300"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        {% if quick_wins %}
+        <div class="card border-info">
+            <div class="card-header bg-info text-white"><h5 class="mb-0">Top Recommendations</h5></div>
+            <div class="card-body">
+                {% for rec in quick_wins %}
+                <div class="card rec-card rec-{{ rec.priority }} mb-2">
+                    <div class="card-body py-2">
+                        <span class="badge bg-{{ 'danger' if rec.priority == 'high' else 'warning' if rec.priority == 'medium' else 'secondary' }}">{{ rec.priority }}</span>
+                        <strong>{{ rec.title }}</strong>
+                        <p class="small text-muted mb-0">{{ rec.description }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+                <a href="{{ url_for('assessments.view_assessment', pipeline_id=pipeline.id, assessment_id=latest_assessment.id) }}" class="btn btn-sm btn-outline-primary mt-2">View Full Results</a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<h2>Pipeline Stages</h2>
+{% if pipeline.stages %}
+<table class="table">
+    <thead>
+        <tr><th>Stage</th><th>Tool</th><th>Status</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+        {% for stage in pipeline.stages %}
+        <tr>
+            <td>{{ stage.name }}</td>
+            <td>{{ stage.tool or '-' }}</td>
+            <td>
+                <span class="badge bg-{{ 'success' if stage.status == 'healthy' else 'warning' if stage.status == 'degraded' else 'danger' if stage.status == 'down' else 'secondary' }}">
+                    {{ stage.status }}
+                </span>
+            </td>
+            <td>
+                <form method="POST" action="{{ url_for('pipelines.remove_stage', pipeline_id=pipeline.id, stage_id=stage.id) }}" class="d-inline" onsubmit="return confirm('Remove this stage?')">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="text-muted">No stages configured yet.</p>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-header"><h5 class="mb-0">Add Stage</h5></div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('pipelines.add_pipeline_stage', pipeline_id=pipeline.id) }}">
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="name" placeholder="Stage name" required>
+                </div>
+                <div class="col-md-3">
+                    <input type="text" class="form-control" name="tool" placeholder="Tool (e.g. Jenkins)">
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" name="status">
+                        <option value="unknown">Unknown</option>
+                        <option value="healthy">Healthy</option>
+                        <option value="degraded">Degraded</option>
+                        <option value="down">Down</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <input type="text" class="form-control" name="config_url" placeholder="Config URL">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Add</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<h2 class="mt-4">Maturity Assessments</h2>
+{% if pipeline.assessments %}
+<table class="table">
+    <thead>
+        <tr><th>Date</th><th>Overall</th><th>Level</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+        {% for a in pipeline.assessments | reverse %}
+        <tr>
+            <td>{{ a.assessed_at.strftime('%Y-%m-%d') }}</td>
+            <td><strong>{{ a.overall_score }}/5</strong></td>
+            <td><span class="badge maturity-level-{{ a.overall_score }}">{{ a.maturity_label }}</span></td>
+            <td><a href="{{ url_for('assessments.view_assessment', pipeline_id=pipeline.id, assessment_id=a.id) }}" class="btn btn-sm btn-outline-primary">View</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="text-muted">No assessments yet. <a href="{{ url_for('assessments.new_assessment', pipeline_id=pipeline.id) }}">Run your first assessment</a>.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if latest_assessment %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var labels = {{ latest_assessment.DIMENSIONS | tojson }};
+    var labelNames = ['Version Control', 'Build Process', 'Testing', 'Deployment', 'Monitoring', 'Security', 'Config Management', 'Feedback Loops'];
+    var scores = labels.map(function(k) { return {{ latest_assessment.dimension_scores | tojson }}[k] || 0; });
+    createRadarChart('radarChart', labelNames, scores, null);
+});
+</script>
+{% endif %}
+{% endblock %}
