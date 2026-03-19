@@ -1,15 +1,15 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 
+from app.services.assessment_service import get_latest_assessment
 from app.services.pipeline_service import (
-    get_all_pipelines,
-    get_pipeline,
+    add_stage,
     create_pipeline_from_url,
     delete_pipeline,
-    add_stage,
-    update_stage,
     delete_stage,
+    get_all_pipelines,
+    get_pipeline,
+    update_stage,
 )
-from app.services.assessment_service import get_latest_assessment
 from app.services.recommendation_service import get_quick_wins
 
 pipelines_bp = Blueprint("pipelines", __name__)

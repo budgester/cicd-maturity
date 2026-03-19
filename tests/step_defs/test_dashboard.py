@@ -1,6 +1,5 @@
 from pytest_bdd import scenarios, when
 
-
 scenarios("dashboard.feature")
 
 

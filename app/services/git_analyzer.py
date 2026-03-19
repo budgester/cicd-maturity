@@ -218,7 +218,7 @@ class GitAnalyzer:
 
         # Commit message quality
         log = self._git("log", "--oneline", "-50", "--format=%s")
-        commits = [l.strip() for l in log.strip().splitlines() if l.strip()]
+        commits = [line.strip() for line in log.strip().splitlines() if line.strip()]
         if commits:
             conventional = sum(
                 1 for c in commits
@@ -258,7 +258,7 @@ class GitAnalyzer:
 
         # Branch count
         branch_output = self._git("ls-remote", "--heads", "origin")
-        branch_count = len([l for l in branch_output.strip().splitlines() if l.strip()])
+        branch_count = len([line for line in branch_output.strip().splitlines() if line.strip()])
         if branch_count > 0:
             evidence.append({"check": "branches", "found": True, "detail": f"{branch_count} remote branch(es)"})
             if branch_count <= 5:
@@ -528,7 +528,7 @@ class GitAnalyzer:
 
         # Release tags
         tag_output = self._git("ls-remote", "--tags", "origin")
-        tags = [l for l in tag_output.strip().splitlines() if l.strip() and "^{}" not in l]
+        tags = [line for line in tag_output.strip().splitlines() if line.strip() and "^{}" not in line]
         if tags:
             evidence.append({"check": "release_tags", "found": True, "detail": f"{len(tags)} release tag(s)"})
             score = max(score, 3)
@@ -728,7 +728,10 @@ class GitAnalyzer:
             evidence.append({"check": "compose_parity", "found": True, "detail": f"Docker Compose for local environment: {compose}", "path": compose})
             score = max(score, 3)
         if devcontainer:
-            evidence.append({"check": "devcontainer", "found": True, "detail": "Dev container configured for consistent dev environments", "path": devcontainer})
+            evidence.append({
+                "check": "devcontainer", "found": True,
+                "detail": "Dev container configured for consistent dev environments", "path": devcontainer,
+            })
             score = max(score, 4)
 
         # Environment-specific config files
@@ -770,7 +773,7 @@ class GitAnalyzer:
 
         # Release tag frequency
         tag_output = self._git("for-each-ref", "--sort=-creatordate", "--format=%(creatordate:iso8601)", "refs/tags")
-        tag_dates = [l.strip() for l in tag_output.strip().splitlines() if l.strip()]
+        tag_dates = [line.strip() for line in tag_output.strip().splitlines() if line.strip()]
 
         if len(tag_dates) >= 2:
             from datetime import datetime
@@ -810,7 +813,7 @@ class GitAnalyzer:
 
         # Commit frequency
         log = self._git("log", "--format=%aI", "-100")
-        commit_dates = [l.strip() for l in log.strip().splitlines() if l.strip()]
+        commit_dates = [line.strip() for line in log.strip().splitlines() if line.strip()]
         if len(commit_dates) >= 2:
             from datetime import datetime
             try:
@@ -886,7 +889,10 @@ class GitAnalyzer:
             r"\.github/copilot\.yml$",
         )
         if copilot_instructions:
-            evidence.append({"check": "copilot_config", "found": True, "detail": f"GitHub Copilot config: {copilot_instructions}", "path": copilot_instructions})
+            evidence.append({
+                "check": "copilot_config", "found": True,
+                "detail": f"GitHub Copilot config: {copilot_instructions}", "path": copilot_instructions,
+            })
             score = max(score, 3)
 
         aider_config = self._file_exists(r"\.aider\.conf\.yml$", r"\.aiderignore$")
@@ -944,7 +950,7 @@ class GitAnalyzer:
 
         if ai_mention_count > 0:
             total_output = self._git("log", "--oneline", "-100")
-            total_commits = len([l for l in total_output.strip().splitlines() if l.strip()])
+            total_commits = len([line for line in total_output.strip().splitlines() if line.strip()])
 
             if total_commits > 0:
                 pct = min((ai_mention_count / total_commits) * 100, 100)

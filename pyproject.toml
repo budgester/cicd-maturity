@@ -17,7 +17,7 @@ show_missing = true
 fail_under = 80
 
 [tool.ruff]
-line-length = 120
+line-length = 160
 target-version = "py311"
 
 [tool.ruff.lint]

@@ -346,7 +346,10 @@ ASSESSMENT_DIMENSIONS = {
     },
     "ai_readiness": {
         "label": "AI Readiness",
-        "description": "How well the codebase supports AI-assisted development, agentic workflows, and whether the code itself appears AI-generated or human-crafted.",
+        "description": (
+            "How well the codebase supports AI-assisted development, agentic workflows,"
+            " and whether the code itself appears AI-generated or human-crafted."
+        ),
         "questions": [
             {
                 "key": "ai_agent_config",
