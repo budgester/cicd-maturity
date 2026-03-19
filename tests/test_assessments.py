@@ -115,3 +115,54 @@ def test_export_pdf(client, sample_pipeline, sample_assessment):
     assert resp.status_code == 200
     assert resp.headers["Content-Type"] == "application/pdf"
     assert b"%PDF" in resp.data
+
+
+def test_add_stage_via_route(client, sample_pipeline):
+    resp = client.post(
+        f"/pipelines/{sample_pipeline.id}/stages",
+        data={"name": "build", "tool": "Jenkins", "status": "healthy"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+
+
+def test_edit_stage_via_route(client, sample_pipeline):
+    from app.services.pipeline_service import add_stage
+    stage = add_stage(sample_pipeline.id, "test", tool="pytest")
+    resp = client.post(
+        f"/pipelines/{sample_pipeline.id}/stages/{stage.id}/edit",
+        data={"name": "test", "tool": "jest", "status": "healthy"},
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+
+
+def test_delete_stage_via_route(client, sample_pipeline):
+    from app.services.pipeline_service import add_stage
+    stage = add_stage(sample_pipeline.id, "deploy", tool="ArgoCD")
+    resp = client.post(
+        f"/pipelines/{sample_pipeline.id}/stages/{stage.id}/delete",
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+
+
+def test_delete_pipeline_via_route(client, sample_pipeline):
+    resp = client.post(
+        f"/pipelines/{sample_pipeline.id}/delete",
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+
+
+def test_create_pipeline_requires_url(client):
+    resp = client.post("/pipelines/new", data={"repository_url": ""}, follow_redirects=True)
+    assert resp.status_code == 200
+    assert b"Repository URL is required" in resp.data
+
+
+def test_reference_page(client):
+    resp = client.get("/reference")
+    assert resp.status_code == 200
+    assert b"Maturity Model Reference" in resp.data
+    assert b"Version Control" in resp.data
