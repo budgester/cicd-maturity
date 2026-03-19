@@ -1,5 +1,5 @@
 from app import db
-from app.models.pipeline import MaturityAssessment, DimensionResponse
+from app.models.pipeline import DimensionResponse, MaturityAssessment
 from app.services.git_analyzer import GitAnalyzer
 from config.assessment_questions import ASSESSMENT_DIMENSIONS
 

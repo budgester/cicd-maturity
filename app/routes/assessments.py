@@ -1,16 +1,16 @@
 import io
 import subprocess
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash, make_response
+from flask import Blueprint, flash, make_response, redirect, render_template, request, url_for
 
 from app.services.assessment_service import (
     create_assessment_from_repo,
     get_assessment_history,
-    get_latest_assessment,
     get_dimension_labels,
+    get_latest_assessment,
 )
-from app.services.recommendation_service import get_recommendations, get_quick_wins
 from app.services.pipeline_service import get_pipeline
+from app.services.recommendation_service import get_quick_wins, get_recommendations
 from config.assessment_questions import ASSESSMENT_DIMENSIONS
 
 assessments_bp = Blueprint("assessments", __name__)
@@ -54,8 +54,8 @@ def create(pipeline_id):
 @assessments_bp.route("/pipelines/<int:pipeline_id>/assessments/<int:assessment_id>")
 def view_assessment(pipeline_id, assessment_id):
     pipeline = get_pipeline(pipeline_id)
-    from app.models import MaturityAssessment
     from app import db
+    from app.models import MaturityAssessment
 
     assessment = db.get_or_404(MaturityAssessment, assessment_id)
     dimension_labels = get_dimension_labels()
@@ -85,8 +85,9 @@ def view_assessment(pipeline_id, assessment_id):
 @assessments_bp.route("/pipelines/<int:pipeline_id>/assessments/<int:assessment_id>/pdf")
 def export_pdf(pipeline_id, assessment_id):
     from xhtml2pdf import pisa
-    from app.models import MaturityAssessment
+
     from app import db
+    from app.models import MaturityAssessment
 
     pipeline = get_pipeline(pipeline_id)
     assessment = db.get_or_404(MaturityAssessment, assessment_id)

@@ -53,9 +53,9 @@ def create_app(config_name=None):
 
     app.jinja_env.filters["repo_file_url"] = lambda path, repo_url: repo_file_url(repo_url, path)
 
+    from app.routes.assessments import assessments_bp
     from app.routes.main import main_bp
     from app.routes.pipelines import pipelines_bp
-    from app.routes.assessments import assessments_bp
 
     app.register_blueprint(main_bp)
     app.register_blueprint(pipelines_bp, url_prefix="/pipelines")

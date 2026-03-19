@@ -1,8 +1,8 @@
 from app.services.recommendation_service import (
-    get_recommendations,
+    RECOMMENDATIONS,
     get_next_level_guidance,
     get_quick_wins,
-    RECOMMENDATIONS,
+    get_recommendations,
 )
 
 

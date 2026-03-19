@@ -54,6 +54,7 @@ def test_create_assessment_via_post(client, sample_pipeline, sample_assessment):
 
 def test_create_assessment_handles_clone_failure(client, sample_pipeline):
     import subprocess
+
     from app import db
     sample_pipeline.repository_url = "https://example.com/repo.git"
     db.session.commit()

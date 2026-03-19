@@ -1,5 +1,4 @@
-from pytest_bdd import scenarios, when, parsers
-
+from pytest_bdd import parsers, scenarios, when
 
 scenarios("pipelines.feature")
 

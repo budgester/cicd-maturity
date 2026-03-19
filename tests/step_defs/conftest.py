@@ -1,5 +1,5 @@
 import pytest
-from pytest_bdd import given, then, parsers
+from pytest_bdd import given, parsers, then
 
 from app.models.pipeline import Pipeline
 
